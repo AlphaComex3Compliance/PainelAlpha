@@ -1,237 +1,296 @@
-import { pdf } from '@react-pdf/renderer';
-import { FichaAlphaPDF } from './GerarFicha';
-import { useEffect, useState } from 'react';
-import { upsertConsulta } from '@/actions/PreAnalise';
+"use client";
 
-export const ModalPDF = ({ dados, radarDados, user, isOpen, onClose }: any) => {
+import { pdf } from "@react-pdf/renderer";
+import { FichaAlphaPDF } from "./GerarFicha";
+import { useEffect, useState } from "react";
+import { upsertConsulta } from "@/actions/PreAnalise";
+import { ChevronDown, ChevronUp, X, FileText } from "lucide-react";
+
+interface Props {
+    dados: any;
+    radarDados: any;
+    user: string;
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+export const ModalPDF = ({ dados, radarDados, user, isOpen, onClose }: Props) => {
     const [dadosManuais, setDadosManuais] = useState({
-        dataSituacao: new Date().toLocaleDateString('pt-BR'),
-        horaSituacao: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        mesProtocolo: new Date().toLocaleDateString('pt-BR', { month: 'long' }),
+        dataSituacao: "",
+        horaSituacao: "",
+        mesProtocolo: "",
         telefone: "",
         nomeResponsavel: "",
-        observacoes: ""
+        observacoes: "",
+        origemLead: "",
+        origemLeadDetalhe: ""
     });
+    const [showDetails, setShowDetails] = useState(false);
 
-    const prontoParaPDF = dados.rfb.status === "success" && dados.radar.status !== "loading";
+    const ORIGENS = [
+        { value: "instagram", label: "Instagram", detalhe: false },
+        { value: "google", label: "Google", detalhe: false },
+        { value: "callix", label: "Callix", detalhe: false },
+        { value: "parceiro", label: "Parceiro", detalhe: true, placeholder: "Nome do parceiro" },
+        { value: "indicacao", label: "Indicação", detalhe: true, placeholder: "Nome de quem indicou" },
+        { value: "outros", label: "Outros", detalhe: true, placeholder: "Especificar origem" },
+    ];
 
-
-
+    const origemSelecionada = ORIGENS.find(o => o.value === dadosManuais.origemLead);
 
     useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        }
-
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
+        if (isOpen) document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = "unset"; };
     }, [isOpen]);
 
     if (!isOpen) return null;
 
     const gerarEVisualizar = async () => {
         const radarReal = radarDados?.dados || radarDados;
-
         const payload = {
             ...dados,
             radar: radarReal,
-            extra: dadosManuais,
-            telefone: dadosManuais.telefone,
-            nomeResponsavel: dadosManuais.nomeResponsavel,
-            observacoes: dadosManuais.observacoes,
+            extra: { ...dadosManuais }
         };
-
-        console.log("PAYLOAD FINAL PARA O PDF:", payload);
-
         await upsertConsulta(payload);
-
         const doc = <FichaAlphaPDF dados={payload} userLogado={user} />;
         const blob = await pdf(doc).toBlob();
-        window.open(URL.createObjectURL(blob), '_blank');
+        window.open(URL.createObjectURL(blob), "_blank");
     };
 
-
     const dataAbertura = dados?.rfb?.dados?.dataConstituicao || "";
-    const agora = new Date();
-
     let maisDe5Anos = false;
-    let menosDe5Anos = false;
 
-    if (dataAbertura && dataAbertura.includes("/")) {
+    if (dataAbertura?.includes("/")) {
         const [dia, mes, ano] = dataAbertura.split("/").map(Number);
         const dataAberturaDoc = new Date(ano, mes - 1, dia);
-
+        const agora = new Date();
         let idade = agora.getFullYear() - dataAberturaDoc.getFullYear();
         const m = agora.getMonth() - dataAberturaDoc.getMonth();
-
-        if (m < 0 || (m === 0 && agora.getDate() < dataAberturaDoc.getDate())) {
-            idade--;
-        }
-
+        if (m < 0 || (m === 0 && agora.getDate() < dataAberturaDoc.getDate())) idade--;
         maisDe5Anos = idade >= 5;
-        menosDe5Anos = idade < 5;
     }
 
+    const campoClass = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:border-white/20 focus:outline-none transition-all placeholder:text-slate-700";
+    const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5";
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <div className="bg-[#0A0A0A] border border-white/10 rounded-[2.5rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
 
-                <div className="bg-gray-50 px-8 py-4 border-b border-gray-100">
-                    <h2 className="text-xl font-bold text-gray-800">Finalizar Ficha</h2>
-                    <p className="text-xs text-gray-500">Preencha os campos manuais abaixo.</p>
-                </div>
-
-                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
-                    {/* SEÇÃO DE CAMPOS MANUAIS */}
-                    <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-orange-50/50 rounded-xl border border-orange-100">
-                        <div className="col-span-2 text-[10px] font-bold text-orange-600 uppercase mb-2">Preenchimento Manual</div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nome do Responsavel da empresa</label>
-                            <input
-                                type="text"
-                                value={dadosManuais.nomeResponsavel}
-                                onChange={(e) => setDadosManuais({ ...dadosManuais, nomeResponsavel: e.target.value })}
-                                className="w-full px-3 py-2 bg-white text-black border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Telefone</label>
-                            <input
-                                type="text"
-                                value={dadosManuais.telefone}
-                                onChange={(e) => setDadosManuais({ ...dadosManuais, telefone: e.target.value })}
-                                className="w-full px-3 py-2 bg-white text-black border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Data</label>
-                            <input
-                                type="text"
-                                value={dadosManuais.dataSituacao}
-                                onChange={(e) => setDadosManuais({ ...dadosManuais, dataSituacao: e.target.value })}
-                                className="w-full px-3 py-2 bg-white text-black border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Hora</label>
-                            <input
-                                type="text"
-                                value={dadosManuais.horaSituacao}
-                                onChange={(e) => setDadosManuais({ ...dadosManuais, horaSituacao: e.target.value })}
-                                className="w-full px-3 py-2 bg-white text-black border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">mês de protocolo</label>
-                            <input
-                                type="text"
-                                value={dadosManuais.mesProtocolo}
-                                onChange={(e) => setDadosManuais({ ...dadosManuais, mesProtocolo: e.target.value })}
-                                className="w-full px-3 py-2 bg-white text-black border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
-                        </div>
-
-                    </div>
-                    <div className="mt-6">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                            Observações
-                        </label>
-                        <textarea
-                            rows={4}
-                            value={dadosManuais.observacoes}
-                            onChange={(e) => setDadosManuais({ ...dadosManuais, observacoes: e.target.value })}
-                            placeholder="Digite aqui detalhes relevantes sobre a situação da empresa ou do Radar..."
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all resize-none placeholder:text-gray-300"
-                        />
-                        <p className="text-[9px] text-gray-400 mt-1 italic">
-                            * Este texto aparecerá na seção final do documento PDF.
+                {/* HEADER */}
+                <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-black italic uppercase tracking-tighter text-white">
+                            Gerar <span className="text-orange-500">Ficha</span>
+                        </h2>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                            Campos opcionais — preencha se necessário
                         </p>
                     </div>
+                    <button onClick={onClose} className="cursor-pointer p-2.5 hover:bg-white/5 rounded-full text-slate-500 hover:text-white transition-all">
+                        <X size={22} />
+                    </button>
                 </div>
 
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* BODY */}
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
 
-                    {/* Card RFB */}
-                    <div className="p-4 rounded-xl border border-gray-100 bg-blue-50/30">
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Dados Receita Federal</span>
-                        <h3 className="font-semibold text-gray-800 mt-1 truncate">
-                            {dados?.rfb?.dados?.razaoSocial || "Empresa não identificada"}
-                        </h3>
-                        <p className="text-ls text-gray-700 mt-1">Fantasia: {dados?.rfb?.dados?.nomeFantasia || "---"}</p>
-                        <p className="text-xs text-gray-500 mt-1">CNPJ: {dados?.rfb?.dados?.cnpj || "---"}</p>
-                        <p className="text-xs text-gray-500">UF: {dados?.rfb?.dados?.uf || "--"}</p>
+                    {/* DADOS MANUAIS */}
+                    <div className="space-y-5 p-6 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Preenchimento Manual</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClass}>Nome do Responsável</label>
+                                <input
+                                    type="text"
+                                    placeholder="Nome completo"
+                                    value={dadosManuais.nomeResponsavel}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, nomeResponsavel: e.target.value })}
+                                    className={campoClass}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Telefone</label>
+                                <input
+                                    type="text"
+                                    placeholder="(00) 00000-0000"
+                                    value={dadosManuais.telefone}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, telefone: e.target.value })}
+                                    className={campoClass}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Data da Reunião</label>
+                                <input
+                                    type="text"
+                                    placeholder="DD/MM/AAAA"
+                                    value={dadosManuais.dataSituacao}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, dataSituacao: e.target.value })}
+                                    className={campoClass}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Hora da Reunião</label>
+                                <input
+                                    type="text"
+                                    placeholder="HH:MM"
+                                    value={dadosManuais.horaSituacao}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, horaSituacao: e.target.value })}
+                                    className={campoClass}
+                                />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <label className={labelClass}>Mês de Protocolo</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Maio"
+                                    value={dadosManuais.mesProtocolo}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, mesProtocolo: e.target.value })}
+                                    className={campoClass}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className={labelClass}>Observações</label>
+                            <textarea
+                                rows={3}
+                                placeholder="Detalhes relevantes sobre a situação da empresa..."
+                                value={dadosManuais.observacoes}
+                                onChange={(e) => setDadosManuais({ ...dadosManuais, observacoes: e.target.value })}
+                                className={`${campoClass} resize-none`}
+                            />
+                        </div>
+
+                        {/* ORIGEM DO LEAD */}
+                        <div>
+                            <label className={labelClass}>Origem do Lead</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
+                                {ORIGENS.map(origem => (
+                                    <button
+                                        key={origem.value}
+                                        type="button"
+                                        onClick={() => setDadosManuais({
+                                            ...dadosManuais,
+                                            origemLead: dadosManuais.origemLead === origem.value ? "" : origem.value,
+                                            origemLeadDetalhe: ""
+                                        })}
+                                        className={`cursor-pointer px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
+                                            dadosManuais.origemLead === origem.value
+                                                ? "bg-orange-500/20 border-orange-500/40 text-orange-300"
+                                                : "bg-white/[0.03] border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300"
+                                        }`}
+                                    >
+                                        {origem.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {origemSelecionada?.detalhe && (
+                                <input
+                                    type="text"
+                                    placeholder={origemSelecionada.placeholder}
+                                    value={dadosManuais.origemLeadDetalhe}
+                                    onChange={(e) => setDadosManuais({ ...dadosManuais, origemLeadDetalhe: e.target.value })}
+                                    className={`${campoClass} mt-3`}
+                                    autoFocus
+                                />
+                            )}
+                        </div>
                     </div>
 
-                    <div className={`p-4 rounded-xl border ${maisDe5Anos ? 'border-green-100 bg-green-50/30' : 'border-blue-100 bg-blue-50/30'}`}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tempo de Constituição</span>
-                        <h3 className="font-semibold text-gray-800 mt-1">
-                            {maisDe5Anos ? "Mais de 5 Anos" : "Menos de 5 Anos"}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">Abertura: {dados?.rfb?.dados?.dataConstituicao || "--"}</p>
+                    {/* DETALHES DA EMPRESA — colapsável */}
+                    <div className="rounded-2xl border border-white/10 overflow-hidden">
+                        <button
+                            onClick={() => setShowDetails(v => !v)}
+                            className="cursor-pointer w-full flex items-center justify-between px-6 py-4 bg-white/[0.03] hover:bg-white/[0.06] transition-all"
+                        >
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-300">
+                                Detalhes da Empresa
+                            </span>
+                            {showDetails
+                                ? <ChevronUp size={18} className="text-slate-400" />
+                                : <ChevronDown size={18} className="text-slate-400" />
+                            }
+                        </button>
+
+                        {showDetails && (
+                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01]">
+                                <DetalheCard
+                                    tag="Receita Federal"
+                                    tagColor="text-blue-400"
+                                    title={dados?.rfb?.dados?.razaoSocial || "Empresa não identificada"}
+                                    lines={[
+                                        `Fantasia: ${dados?.rfb?.dados?.nomeFantasia || "---"}`,
+                                        `CNPJ: ${dados?.rfb?.dados?.cnpj || "---"}`,
+                                        `UF: ${dados?.rfb?.dados?.uf || "---"}`,
+                                    ]}
+                                />
+
+                                <DetalheCard
+                                    tag="Tempo de Constituição"
+                                    tagColor="text-slate-400"
+                                    title={maisDe5Anos ? "Mais de 5 Anos" : "Menos de 5 Anos"}
+                                    lines={[`Abertura: ${dados?.rfb?.dados?.dataConstituicao || "---"}`]}
+                                    highlight={maisDe5Anos ? "emerald" : "blue"}
+                                />
+
+                                <DetalheCard
+                                    tag="Capital Social"
+                                    tagColor="text-emerald-400"
+                                    title={dados?.rfb?.dados?.capitalSocial
+                                        ? Number(dados.rfb.dados.capitalSocial).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                        : "Não informado"}
+                                    lines={["Valor declarado na Receita Federal"]}
+                                />
+
+                                <DetalheCard
+                                    tag="Consulta Siscomex"
+                                    tagColor="text-orange-400"
+                                    title={radarDados?.submodalidade || "Não Identificado"}
+                                    lines={[
+                                        `Situação: ${radarDados?.situacao || "---"}`,
+                                        `Data: ${radarDados?.dataSituacao || "---"}`,
+                                    ]}
+                                />
+
+                                <DetalheCard
+                                    tag="Empresa Aqui"
+                                    tagColor="text-purple-400"
+                                    title={dados?.empresaqui?.dados?.regimeEA || "Regime não informado"}
+                                    lines={[`Natureza: ${dados?.rfb?.dados?.natureza_juridica || "---"}`]}
+                                />
+
+                                <DetalheCard
+                                    tag="Emitido por"
+                                    tagColor="text-slate-400"
+                                    title={user}
+                                    lines={[`Data de Emissão: ${new Date().toLocaleDateString("pt-BR")}`]}
+                                />
+                            </div>
+                        )}
                     </div>
-
-
-                    {/* Card Capital Social */}
-                    <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/30">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Capital Social</span>
-                        <h3 className="font-semibold text-gray-800 mt-1">
-                            {dados?.rfb?.dados?.capitalSocial
-                                ? Number(dados.rfb.dados.capitalSocial).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                                : "Não informado"}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">Valor declarado na Receita Federal do Brazil</p>
-                    </div>
-
-                    {/* Card Siscomex (Radar) */}
-                    <div className="p-4 rounded-xl border border-orange-100 bg-orange-50/30">
-                        <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Consulta Siscomex</span>
-                        <h3 className="font-semibold text-gray-800 mt-1 uppercase">
-                            {radarDados?.submodalidade || "Não Identificado"}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">Situação: {radarDados?.situacao || "---"}</p>
-                        <p className="text-xs text-gray-500">Data: {radarDados?.dataSituacao || "--"}</p>
-                    </div>
-
-                    {/* Card Empresa Aqui */}
-                    <div className="p-4 rounded-xl border border-purple-100 bg-purple-50/30">
-                        <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Empresa Aqui</span>
-                        <h3 className="font-semibold text-gray-800 mt-1">
-                            {dados?.empresaqui?.dados?.regimeEA || "Regime não informado"}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">Natureza: {dados?.rfb?.dados?.natureza_juridica || "---"}</p>
-                    </div>
-
-                    {/* Card Usuário */}
-                    <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Emitido por</span>
-                        <h3 className="font-semibold text-gray-700 mt-1">{user}</h3>
-                        <p className="text-xs text-gray-500 mt-1">Data de Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
-                    </div>
-
                 </div>
 
-                <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-3 justify-end">
+                {/* FOOTER */}
+                <div className="px-8 py-6 border-t border-white/5 flex flex-col sm:flex-row gap-3 justify-end">
                     <button
                         onClick={onClose}
-                        className="cursor-pointer px-6 py-2.5 text-gray-900 font-medium hover:bg-red-500 rounded-lg transition-colors"
+                        className="cursor-pointer px-6 py-3 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-all"
                     >
-                        Fechar
+                        Cancelar
                     </button>
-
                     <button
                         onClick={gerarEVisualizar}
-                        className="cursor-pointer flex items-center justify-center gap-2 px-8 py-2.5 bg-[#FF6B00] text-white font-bold rounded-lg hover:bg-[#E66000] shadow-lg shadow-orange-200 transition-all transform active:scale-95"
+                        className="cursor-pointer flex items-center justify-center gap-2 px-8 py-3 bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-orange-400 shadow-lg transition-all active:scale-95"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <FileText size={16} />
                         Gerar Documento PDF
                     </button>
                 </div>
@@ -239,5 +298,24 @@ export const ModalPDF = ({ dados, radarDados, user, isOpen, onClose }: any) => {
         </div>
     );
 };
+
+function DetalheCard({ tag, tagColor, title, lines, highlight }: {
+    tag: string;
+    tagColor: string;
+    title: string;
+    lines: string[];
+    highlight?: string;
+}) {
+    const borderClass = highlight === "emerald" ? "border-emerald-500/20" : "border-white/5";
+    return (
+        <div className={`p-4 rounded-xl border ${borderClass} bg-white/[0.03]`}>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${tagColor}`}>{tag}</span>
+            <h3 className="font-black text-white mt-1.5 text-sm uppercase italic leading-tight truncate">{title}</h3>
+            {lines.map((line, i) => (
+                <p key={i} className="text-[10px] text-slate-500 mt-1 font-bold">{line}</p>
+            ))}
+        </div>
+    );
+}
 
 export default ModalPDF;

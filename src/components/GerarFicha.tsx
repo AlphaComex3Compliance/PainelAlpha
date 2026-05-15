@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     borderColor: '#000'
   },
   finTitle: { fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
-  finContent: { fontSize: 10, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#000' },
+  finContent: { fontSize: 8, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#000' },
   finFooter: { flexDirection: 'row', borderRightWidth: 1, borderColor: '#000' },
   finFooterCell: { flex: 1, borderBottomWidth: 1, borderRightWidth: 1, borderColor: '#000', padding: 2, textAlign: 'center', fontSize: 7, fontWeight: 'bold' },
   obsSection: {
@@ -88,6 +88,9 @@ export const FichaAlphaPDF = ({ dados, userLogado }: { dados: any, userLogado: s
   const rfb = dados?.rfb?.dados || dados?.rfb || {};
   const radar = dados?.radar || {};
   const eq = dados?.empresaqui?.dados || dados?.empresaqui || {};
+
+  const origemLead = dados.extra?.origemLead || "";
+  const origemDetalhe = dados.extra?.origemLeadDetalhe || "";
 
   const radarExibicao = String(radar?.submodalidade || " ").toUpperCase();
   const situacaoRadar = String(radar?.situacao || " ").toUpperCase();
@@ -149,15 +152,19 @@ export const FichaAlphaPDF = ({ dados, userLogado }: { dados: any, userLogado: s
             </View>
           </View>
           <View style={styles.row}>
-            <View style={[styles.cell, { flex: 1 }]}><Text style={styles.label}>ORIGEM DO LEAD</Text>
+            <View style={[styles.cell, { flex: 1 }]}>
+              <Text style={styles.label}>ORIGEM DO LEAD</Text>
               <View style={styles.optionRow}>
-                <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>INSTAGRAM</Text></View>
-                <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>GOOGLE</Text></View>
-                <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>CALLIX</Text></View>
-                
-                <View style={styles.optionRow}><View style={styles.circle}/><Text style={styles.optionText}>PARCEIRO:_______________</Text></View>
-                <View style={styles.optionRow}><View style={styles.circle}/><Text style={styles.optionText}>INDICAÇÃO:_______________</Text></View>
-                <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>OUTROS:_______________</Text></View>
+                <View style={styles.circleFilled} />
+                <Text style={styles.optionText}>
+                  {origemLead === "instagram" && "INSTAGRAM"}
+                  {origemLead === "google" && "GOOGLE"}
+                  {origemLead === "callix" && "CALLIX"}
+                  {origemLead === "parceiro" && (origemDetalhe ? `PARCEIRO: ${origemDetalhe}` : "PARCEIRO")}
+                  {origemLead === "indicacao" && (origemDetalhe ? `INDICAÇÃO: ${origemDetalhe}` : "INDICAÇÃO")}
+                  {origemLead === "outros" && (origemDetalhe ? `OUTROS: ${origemDetalhe}` : "OUTROS")}
+                  {!origemLead && "_______________"}
+                </Text>
               </View>
             </View>
           </View>

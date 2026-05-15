@@ -1,35 +1,6 @@
 "use server";
 
 import db from "@/lib/prisma";
-import { auth } from "../../auth";
-
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-async function fetchApi(endpoint: string, cnpj: string) {
-    const session = await auth();
-    if (!session) return { error: "Sessão expirada" };
-
-    try {
-        const res = await fetch(`${baseUrl}/api/${endpoint}?cnpj=${cnpj}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error("Erro na resposta da API");
-        return await res.json();
-    } catch (error) {
-        return { error: true };
-    }
-}
-
-export async function consultarReceita(cnpj: string) {
-    return await fetchApi("ReceitaFederal", cnpj);
-}
-
-export async function consultarRadar(cnpj: string) {
-    return await fetchApi("ConsultaRadar", cnpj);
-}
-
-export async function consultarEmpresaAqui(cnpj: string) {
-    return await fetchApi("RadarFiscal", cnpj);
-}
-
 
 export async function upsertConsulta(payload: any) {
     const { rfb, empresaqui, radar, extra } = payload;
@@ -117,10 +88,10 @@ export async function buscarHistorico() {
     try {
         const consultas = await db.consultaPreAnalise.findMany({
             take: 20,
-            orderBy: { updatedAt: 'desc' }
+            orderBy: { updatedAt: "desc" }
         });
         return { success: true, data: consultas };
-    } catch (error) {
+    } catch {
         return { error: "Erro ao carregar histórico" };
     }
 }
