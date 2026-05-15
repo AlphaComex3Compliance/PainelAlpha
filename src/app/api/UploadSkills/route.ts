@@ -8,7 +8,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      token: process.env.SKILLS_READ_WRITE_TOKEN, 
+      token: process.env.SKILLs_READ_WRITE_TOKEN, 
       onBeforeGenerateToken: async (pathname) => {
         return {
           allowedContentTypes: [

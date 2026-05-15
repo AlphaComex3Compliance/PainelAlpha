@@ -108,7 +108,7 @@ export async function deleteVideo(id: string, videoUrl: string, thumbUrl?: strin
         });
 
         try {
-            const options = { token: process.env.SKILLS_READ_WRITE_TOKEN };
+            const options = { token: process.env.SKILLs_READ_WRITE_TOKEN };
             if (videoUrl) await del(videoUrl, options);
             if (thumbUrl) await del(thumbUrl, options);
         } catch (blobErr) {
