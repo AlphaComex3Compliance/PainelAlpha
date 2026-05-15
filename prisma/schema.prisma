@@ -1,0 +1,835 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model usuarios {
+  id                 Int                @id @default(autoincrement())
+  nome               String
+  usuario            String             @unique
+  email              String             @unique
+  senha              String
+  role               String             @default("User")
+  permissoes         String?
+  chamados_criados   chamados[]         @relation("Solicitante")
+  mensagens          MensagensChamado[]
+  Auditoria          Auditoria[]
+  imagemUrl          String?
+  esconderBloqueados Boolean            @default(false)
+  ultimo_aviso       String?
+
+  atalhos          String? @default("radar,chamados")
+  tema_interface   String? @default("blue")
+  densidade_painel String? @default("default")
+  bibble_ativo     Boolean @default(true)
+
+  cargo            String?
+  data_contratacao String?
+  status           String  @default("ATIVO")
+
+  reset_token   String?
+  reset_expires DateTime?
+
+  mensagensEnviadas  mensagens[] @relation("Enviadas")
+  mensagensRecebidas mensagens[] @relation("Recebidas")
+
+  tarefas Tarefa[]
+
+  conversasP1 conversas[] @relation("ConversaP1")
+  conversasP2 conversas[] @relation("ConversaP2")
+
+  presets          Preset[]         @relation("PresetTousuarios")
+  progressosVideos ProgressoVideo[]
+  resultadosProvas ResultadoProva[]
+
+  crm_oportunidades crm_oportunidades[] @relation("CrmOportunidadesResponsavel")
+  crm_atividades    crm_atividades[]    @relation("CrmAtividadesAutor")
+}
+
+model chamados {
+  id          Int                @id @default(autoincrement())
+  titulo      String
+  descricao   String
+  categoria   String
+  status      String             @default("ABERTO")
+  prioridade  String             @default("MEDIA")
+  solucao     String?
+  usuarioId   Int
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  solicitante usuarios           @relation("Solicitante", fields: [usuarioId], references: [id], onDelete: Cascade)
+  mensagens   MensagensChamado[]
+
+  @@index([usuarioId])
+  @@index([status])
+}
+
+model consultas_radar {
+  id                Int             @id @default(autoincrement())
+  cnpj              String          @unique
+  razao_social      String?
+  nome_fantasia     String?
+  situacao_radar    String?
+  submodalidade     String?
+  data_situacao     DateTime?
+  municipio         String?
+  uf                String?
+  regime_tributario String?
+  capital_social    String?
+  data_constituicao DateTime?
+  contribuinte      String?
+  data_consulta     DateTime        @default(now())
+  fonte             String
+  json_completo     String
+  arquivo_id        Int?
+  data_opcao        DateTime?
+  optante_simples   Boolean?
+  arquivo           arquivos_radar? @relation(fields: [arquivo_id], references: [id], onDelete: Cascade)
+
+  @@index([cnpj])
+}
+
+model arquivos_radar {
+  id              Int               @id @default(autoincrement())
+  nome_arquivo    String            @unique
+  data_upload     DateTime          @default(now())
+  total_registros Int
+  registros       consultas_radar[]
+}
+
+model reservas {
+  id      Int      @id @default(autoincrement())
+  sala    String
+  usuario String
+  data    DateTime
+  inicio  DateTime
+
+  motivo      String?
+  tipo        String?
+  paoDeQueijo Boolean @default(true)
+
+  fim    DateTime?
+  status String    @default("Agendado")
+}
+
+model documentos {
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  PastaArquivos String?
+  url           String
+  setor         String
+  tipo          String
+  data_criacao  DateTime @default(now())
+  status        String?  @default("ATIVO")
+  criado_por    String?  @default("SISTEMA")
+  protecao      String?  @default("ATIVO")
+  ordem_manual  Int?     @default(0)
+}
+
+model clientes {
+  id                  Int            @id @default(autoincrement())
+  status              String         @default("Em Andamento")
+  cnpj                String         @unique
+  razaoSocial         String
+  nomeFantasia        String?
+  dataConstituicao    String?
+  uf                  String?
+  regimeTributario    String?
+  servicos            String?
+  analistaResponsavel String?
+  dataContratacao     String?
+  dataExito           String?
+  ultimoCs            Int?           @default(0)
+  nps                 Int?
+  feedbackGoogle      Boolean        @default(false)
+  createdAt           String         @default("")
+  updatedAt           String         @default("")
+  log_cs              log_cs[]
+  socios              socios[]
+  logFeedback         logFeedback[]
+  logAlteracao        logAlteracao[]
+  nomeGoogle          String?
+
+  crm_oportunidades crm_oportunidades[]
+  crm_contatos      crm_contatos[]
+
+  @@map("clientes")
+}
+
+model socios {
+  id             Int     @id @default(autoincrement())
+  nome           String
+  telefone       String?
+  obs            String?
+  dataNascimento String?
+  vinculo        String?
+
+  clienteId Int
+  cliente   clientes @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("socios")
+}
+
+model log_cs {
+  id           Int      @id @default(autoincrement())
+  dataRegistro DateTime @default(now())
+  colaborador  String
+  sentimento   String
+  observacao   String?
+  clienteId    Int
+  clientes     clientes @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("log_cs")
+}
+
+model logFeedback {
+  id           Int      @id @default(autoincrement())
+  dataRegistro DateTime @default(now())
+  colaborador  String
+  sentimento   String
+  observacao   String?
+  clienteId    Int
+  clientes     clientes @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("logFeedback")
+}
+
+model logAlteracao {
+  id              Int      @id @default(autoincrement())
+  dataAlteracao   DateTime @default(now())
+  colaborador     String
+  acao            String
+  dadosAnteriores String?
+  clienteId       Int
+  clientes        clientes @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("logAlteracao")
+}
+
+model ordemPastas {
+  id        Int     @id @default(autoincrement())
+  setor     String  @unique
+  ordem     String
+  createdAt String?
+  updatedAt String?
+}
+
+model MensagensChamado {
+  id        Int      @id @default(autoincrement())
+  texto     String?
+  createdAt DateTime @default(now())
+
+  chamado   chamados @relation(fields: [chamadoId], references: [id], onDelete: Cascade)
+  chamadoId Int
+
+  lida_admin   Boolean @default(false)
+  lida_usuario Boolean @default(false)
+
+  arquivoUrl  String?
+  arquivoTipo String?
+
+  autor   usuarios @relation(fields: [autorId], references: [id])
+  autorId Int
+}
+
+model Auditoria {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  acao      String
+  detalhes  String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  usuario usuarios @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model avisos_globais {
+  id        Int      @id @default(autoincrement())
+  mensagem  String
+  ativo     Boolean  @default(true)
+  tipo      String   @default("warning")
+  criado_em DateTime @default(now())
+}
+
+model colaboradores_core {
+  id               Int     @id @default(autoincrement())
+  nome             String
+  setor            String
+  cargo            String
+  data_contratacao String?
+  status           String? @default("ATIVO")
+  criado_em        String?
+}
+
+model sistemas_core {
+  id        Int     @id @default(autoincrement())
+  nome      String
+  link      String
+  icone     String? @default("google")
+  criado_em String?
+
+  recursos vault_recursos[]
+}
+
+model vault_recursos {
+  id             Int     @id @default(autoincrement())
+  colaborador_id String
+  sistema_id     Int
+  login          String
+  senha          String
+  criado_em      String?
+
+  sistema sistemas_core @relation(fields: [sistema_id], references: [id])
+}
+
+model radar_fiscal {
+  id                 Int     @id @default(autoincrement())
+  cnpj               String  @unique
+  razao_social       String?
+  nome_fantasia      String?
+  qualificacao       String?
+  situacao_cadastral String?
+  municipio          String?
+  uf                 String?
+  data_abertura      String?
+  capital_social     String?
+
+  regime_receita        String?
+  regime_ea             String?
+  data_opcao_simples    String?
+  data_exclusao_simples String?
+  divida_tributaria     Float?  @default(0)
+
+  historico_regime String?
+  cnaes            String?
+  qsa              String?
+
+  data_consulta String?
+  perse_anexo   String?
+  perse         String?
+  perse_motivo  String?
+  fonte         String? @default("API")
+}
+
+model historico_planilha_fiscal {
+  id      Int      @id @default(autoincrement())
+  nome    String
+  arquivo Bytes
+  data    DateTime @default(now())
+}
+
+model mensagens {
+  id             Int      @id @default(autoincrement())
+  texto          String
+  remetenteId    Int
+  destinatarioId Int
+  lida           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  remetente    usuarios @relation("Enviadas", fields: [remetenteId], references: [id])
+  destinatario usuarios @relation("Recebidas", fields: [destinatarioId], references: [id])
+}
+
+model conversas {
+  id        Int      @id @default(autoincrement())
+  p1Id      Int
+  p2Id      Int
+  ultimaMsg String?
+  updatedAt DateTime @default(now())
+
+  user1 usuarios @relation("ConversaP1", fields: [p1Id], references: [id])
+  user2 usuarios @relation("ConversaP2", fields: [p2Id], references: [id])
+
+  @@unique([p1Id, p2Id])
+}
+
+model Extratos {
+  id               Int     @id @default(autoincrement())
+  cnpj             String  @unique
+  razaoSocial      String
+  nomeFantasia     String?
+  dataConstituicao String?
+  municipio        String?
+  uf               String?
+  regimeTributario String?
+
+  criadoPorNome String?
+  periodos      PeriodosAnalise[]
+
+  analistaResponsavel String?
+  dataExito           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([criadoPorNome])
+  @@map("Extratos")
+}
+
+model BancosVinculados {
+  id        Int     @id @default(autoincrement())
+  bancoId   String
+  nomeBanco String
+  logo      String
+  descricao String?
+  anotacao  String?
+  status    String  @default("Ativo / Sincronizado")
+
+  periodoId Int
+  periodo   PeriodosAnalise @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transacoes Transacao[]
+
+  @@map("BancosVinculados")
+}
+
+model PeriodosAnalise {
+  id  Int    @id @default(autoincrement())
+  mes String
+  ano String
+
+  extratoId Int
+  empresa   Extratos @relation(fields: [extratoId], references: [id], onDelete: Cascade)
+
+  bancos BancosVinculados[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("PeriodosAnalise")
+}
+
+model Transacao {
+  id            String   @id @default(cuid())
+  data          String
+  descricao     String
+  valor         Float
+  bancoId       String
+  mesReferencia String
+  origemArquivo String?
+  createdAt     DateTime @default(now())
+
+  BancosVinculadosId Int
+  BancosVinculados   BancosVinculados @relation(fields: [BancosVinculadosId], references: [id], onDelete: Cascade)
+}
+
+model Tarefa {
+  id         String  @id @default(cuid())
+  texto      String
+  descricao  String?
+  fixa       Boolean @default(false)
+  feita      Boolean @default(false)
+  prioridade String
+
+  diaSemana     Int?
+  intervaloDias Int?
+  dataInicio    DateTime? @default(now())
+  horario       String?
+
+  userId   Int
+  usuarios usuarios @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  concluidaEm DateTime?
+
+  id_produto String? @unique
+
+  @@index([userId])
+}
+
+model DiretrizSala {
+  id        Int      @id @default(autoincrement())
+  sala      String   @unique
+  descricao String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+model Categoria {
+  id           String           @id @default(uuid())
+  nome         String           @unique
+  cor          String?          @default("#6366f1")
+  icone        String?          @default("Package")
+  produtos     ProdutoEstoque[]
+  listaCompras ListaCompra[]
+  createdAt    DateTime         @default(now())
+}
+
+model ProdutoEstoque {
+  id            String    @id @default(uuid())
+  imagem        String?
+  nome          String
+  quantidade    Int       @default(0)
+  estoqueMinimo Int       @default(1)
+  unidade       String
+  precoMedio    Float?    @default(0)
+  ultimaCompra  DateTime?
+
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ListaCompra {
+  id              String   @id @default(uuid())
+  produtoId       String   @unique
+  nome            String
+  quantidadeAtual Int
+  minimoEsperado  Int
+  unidade         String
+  status          String   @default("CARRINHO")
+  createdAt       DateTime @default(now())
+
+  categoriaId String?
+  categoria   Categoria? @relation(fields: [categoriaId], references: [id])
+}
+
+model ConsultaPreAnalise {
+  id           String  @id @default(cuid())
+  cnpj         String  @unique
+  razaoSocial  String
+  nomeFantasia String?
+  situacao     String?
+  uf           String?
+  municipio    String?
+
+  regimeEA      String?
+  qualificacao  String?
+  submodalidade String?
+  capitalSocial Float?
+
+  dadosBrutos Json
+
+  nomeResponsavel String?
+  telefoneContato String?
+  observacoes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cnpj])
+  @@index([razaoSocial])
+}
+
+model videos {
+  id        String  @id @default(cuid())
+  titulo    String  @unique
+  descricao String?
+  url       String
+  thumbUrl  String?
+  tamanho   String?
+  duracao   Float?
+  setor     String
+  ordem     Int?    @default(0)
+
+  modulo ModuloVideo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  presets    Preset[]         @relation("PresetVideos")
+  progressos ProgressoVideo[]
+
+  @@map("videos")
+}
+
+model modulos {
+  id          String  @id @default(cuid())
+  nome        String  @unique
+  descricao   String?
+  aprendizado String?
+  imagemUrl   String?
+  setor       String
+
+  bloqueado        Boolean @default(false)
+  requerModuloId   String?
+  percentualMinimo Int
+
+  videos ModuloVideo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("modulos")
+}
+
+model ModuloVideo {
+  moduloId String
+  videoId  String
+  ordem    Int    @default(0)
+
+  modulo modulos @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  video  videos  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([moduloId, videoId])
+  @@map("_ModuloVideos")
+}
+
+model ProgressoAula {
+  id        String   @id @default(cuid())
+  userId    String
+  aulaId    String
+  concluido Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, aulaId])
+}
+
+model Preset {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+
+  videos         videos[]         @relation("PresetVideos")
+  usuarios       usuarios[]       @relation("PresetTousuarios")
+  perguntas      Pergunta[]
+  tags           TagQuestao[]     @relation("PresetTags")
+  ResultadoProva ResultadoProva[]
+
+  @@map("presets")
+}
+
+model TagQuestao {
+  id        String     @id @default(uuid())
+  nome      String     @unique
+  perguntas Pergunta[]
+  presets   Preset[]   @relation("PresetTags")
+
+  @@map("tags_questoes")
+}
+
+model Pergunta {
+  id              String     @id @default(uuid())
+  enunciado       String
+  tipo            String     @default("OBJETIVA")
+  opcoes          String
+  respostaCorreta String
+  tagId           String
+  tag             TagQuestao @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  presetId String?
+  preset   Preset? @relation(fields: [presetId], references: [id])
+
+  @@map("perguntas")
+}
+
+enum TipoPergunta {
+  OBJETIVA
+  DESCRITIVA
+}
+
+model ProgressoVideo {
+  id        String   @id @default(cuid())
+  userId    Int
+  videoId   String
+  concluido Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  user  usuarios @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video videos   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model ResultadoProva {
+  id         String   @id @default(cuid())
+  userId     Int
+  presetId   String
+  nota       Float
+  tentativas Int      @default(1)
+  aprovado   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user   usuarios @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preset Preset   @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@map("ResultadoProva")
+}
+
+model ComercialPerformance {
+  id             Int      @id @default(autoincrement())
+  dataRegistro   DateTime
+  colaboradoraId String
+  canal          String
+  servico        String
+
+  leadsRecebidos Int @default(0)
+
+  leadsDesqualificados Int @default(0)
+
+  reunioesAgendadas    Int @default(0)
+  reunioesRealizadas   Int @default(0)
+  noShow               Int @default(0)
+  contratosHabilitacao Int @default(0)
+  contratosRevisao     Int @default(0)
+  HotLeadsHabilitacao  Int @default(0)
+  HotLeadsRevisao      Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dataRegistro, colaboradoraId, canal, servico], name: "performance_pk")
+  @@map("comercial_performance")
+}
+
+model ClienteOperacional {
+  id         String                @id @default(cuid())
+  nome       String
+  email      String                @unique
+  senha      String
+  empresas   OperacionalClientes[]
+  documentos DocumentoUnidade[]
+}
+
+model OperacionalClientes {
+  id           String  @id @default(cuid())
+  status       String  @default("ATIVO")
+  embasamento  String
+  razaoSocial  String
+  nomeFantasia String?
+  cnpj         String  @unique
+  progresso    Int     @default(0)
+  mesProtocolo String?
+  linkGrupo    String?
+
+  situacaoRadar    String?
+  submodalidade    String?
+  dataSituacao     String?
+  municipio        String?
+  uf               String?
+  regimeTributario String?
+  capitalSocial    String?
+  dataConstituicao String?
+  contribuinte     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clienteId  String
+  cliente    ClienteOperacional @relation(fields: [clienteId], references: [id])
+  documentos DocumentoUnidade[]
+
+  @@map("operacional_clientes")
+}
+
+model DocumentoUnidade {
+  id              String  @id @default(cuid())
+  codigoDocumento String
+  nomeArquivo     String
+  urlBlob         String
+  status          String  @default("PENDENTE")
+  observacao      String? 
+
+  empresaId String
+  empresa   OperacionalClientes @relation(fields: [empresaId], references: [id])
+
+  clienteId String
+  cliente   ClienteOperacional @relation(fields: [clienteId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId, codigoDocumento])
+}
+
+// ─── Alpha CRM ────────────────────────────────────────────────────────────────
+
+model crm_oportunidades {
+  id             Int      @id @default(autoincrement())
+  titulo         String
+  empresa        String?
+  valor          Float?
+  etapa          String   @default("PROSPECCAO")
+  probabilidade  Int      @default(50)
+  responsavelId  Int
+  clienteId      Int?
+  descricao      String?
+  dataFechamento String?
+  perdaMotivo    String?
+  ordem          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  responsavel usuarios          @relation("CrmOportunidadesResponsavel", fields: [responsavelId], references: [id])
+  cliente     clientes?         @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  atividades  crm_atividades[]
+
+  @@map("crm_oportunidades")
+}
+
+model crm_contatos {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String?
+  telefone  String?
+  cargo     String?
+  empresa   String?
+  clienteId Int?
+  origem    String?
+  tags      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cliente    clientes?       @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  atividades crm_atividades[]
+
+  @@map("crm_contatos")
+}
+
+model crm_atividades {
+  id             Int      @id @default(autoincrement())
+  tipo           String
+  titulo         String
+  descricao      String?
+  dataPrevista   String?
+  dataRealizada  String?
+  concluida      Boolean  @default(false)
+  oportunidadeId Int?
+  clienteId      Int?
+  contatoId      Int?
+  autorId        Int
+
+  createdAt DateTime @default(now())
+
+  autor        usuarios           @relation("CrmAtividadesAutor", fields: [autorId], references: [id])
+  oportunidade crm_oportunidades? @relation(fields: [oportunidadeId], references: [id], onDelete: SetNull)
+  contato      crm_contatos?      @relation(fields: [contatoId], references: [id], onDelete: SetNull)
+
+  @@map("crm_atividades")
+}
+
+// ─── Alpha Metas ──────────────────────────────────────────────────────────────
+
+model MetaUsuario {
+  id             Int      @id @default(autoincrement())
+  colaboradoraId String
+  metaMensal     Int      @default(0)
+  mes            Int
+  ano            Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([colaboradoraId, mes, ano])
+  @@map("meta_usuario")
+}
+
+model MetaEquipe {
+  id         Int      @id @default(autoincrement())
+  metaMensal Int      @default(0)
+  mes        Int
+  ano        Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([mes, ano])
+  @@map("meta_equipe")
+}
