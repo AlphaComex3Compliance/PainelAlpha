@@ -80,13 +80,20 @@ export async function getAcessosDoUsuario(): Promise<{
     return { success: true, setoresAcessiveis, podeUpload: true, podeGerenciar: true, ehAdminUser: true };
   }
 
-  const acessos = await db.popAcesso.findMany({
-    where: { usuarioId: userId },
-    select: { podeUpload: true, podeGerenciar: true },
-  });
+  const [acessos, usuarioDB] = await Promise.all([
+    db.popAcesso.findMany({
+      where: { usuarioId: userId },
+      select: { podeUpload: true, podeGerenciar: true },
+    }),
+    db.usuarios.findUnique({
+      where: { id: userId },
+      select: { permissoes: true },
+    }),
+  ]);
 
-  const podeUpload = acessos.some((a) => a.podeUpload);
-  const podeGerenciar = acessos.some((a) => a.podeGerenciar);
+  const permissoes = usuarioDB?.permissoes ?? "";
+  const podeUpload = acessos.some((a) => a.podeUpload) || permissoes.includes("UpDocumentos");
+  const podeGerenciar = acessos.some((a) => a.podeGerenciar) || permissoes.includes("Historico");
 
   return { success: true, setoresAcessiveis, podeUpload, podeGerenciar, ehAdminUser: false };
 }

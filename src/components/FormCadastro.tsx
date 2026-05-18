@@ -187,6 +187,8 @@ export default function CadastroUsuarios() {
                       { id: "chamados", label: "Fazer Chamados" },
                       { id: "Reservas", label: "Reservas de Salas" },
                       { id: "Documentos", label: "POP" },
+                      { id: "UpDocumentos", label: "Upload POP" },
+                      { id: "Historico", label: "Gerenciamento POP" },
                       { id: "Cliente", label: "Cadastro de Cliente" },
                       { id: "Senhas", label: "Senhas gerais" },
                       { id: "Perse", label: "Radar Fiscal" },
