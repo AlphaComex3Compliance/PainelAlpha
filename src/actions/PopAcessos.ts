@@ -144,7 +144,8 @@ export type AcessoPayload = {
 };
 
 export async function salvarAcessos(
-  payload: AcessoPayload[]
+  payload: AcessoPayload[],
+  usuariosAfetados?: number[]
 ): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
   const user = sessionUser(session);
@@ -154,8 +155,17 @@ export async function salvarAcessos(
 
   const adminId = Number(user.id);
 
+  // Rate limit simples: máx 500 operações por chamada
+  if (payload.length > 500) {
+    return { success: false, error: "Payload excede limite de operações" };
+  }
+
+  // Merge payload userIds com usuariosAfetados (usuários sem novos acessos que precisam de deleteMany)
+  const idsNoPayload = new Set(payload.map((p) => p.usuarioId));
+  const todosIds = new Set([...idsNoPayload, ...(usuariosAfetados ?? [])]);
+  const usuariosEnvolvidos = [...todosIds];
+
   // Validar que nenhum acesso tenta tocar o setor próprio do usuário alvo
-  const usuariosEnvolvidos = [...new Set(payload.map((p) => p.usuarioId))];
   const usuariosDB = await db.usuarios.findMany({
     where: { id: { in: usuariosEnvolvidos } },
     select: { id: true, role: true },
@@ -167,11 +177,6 @@ export async function salvarAcessos(
     if (setorProprio && item.setor.toUpperCase().trim() === setorProprio) {
       return { success: false, error: `Setor próprio não pode ser alterado via PopAcesso (usuário ${item.usuarioId})` };
     }
-  }
-
-  // Rate limit simples: máx 500 operações por chamada
-  if (payload.length > 500) {
-    return { success: false, error: "Payload excede limite de operações" };
   }
 
   // Agrupar por usuário: deletar todos extras atuais e reinserir
@@ -260,6 +265,3 @@ export async function revogarAcesso(
   return { success: true };
 }
 
-// ─── Exportar constante de setores ─────────────────────────────────────────────
-
-export { SETORES_POP };

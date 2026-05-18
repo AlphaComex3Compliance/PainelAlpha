@@ -855,6 +855,7 @@ model PopAcesso {
   @@unique([usuarioId, setor])
   @@index([usuarioId])
   @@index([setor])
+  @@map("popAcesso")
 }
 
 // ─── Alpha Holerites ──────────────────────────────────────────────────────────

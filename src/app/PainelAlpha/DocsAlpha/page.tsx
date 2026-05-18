@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import {
     FileText, Eye, Search, ShieldCheck, Globe, ChevronRight, Folder,
@@ -51,7 +51,7 @@ export default function PaginaDocumentos() {
     const [ordem, setOrdem] = useState<"PADRAO" | "recentes" | "az" | "za">("PADRAO");
     const [editandoNomePasta, setEditandoNomePasta] = useState<string | null>(null);
     const [novoNomeInput, setNovoNomeInput] = useState("");
-    const [docParaExcluir, setDocParaExcluir] = useState<any>(null);
+    const [docParaExcluir, setDocParaExcluir] = useState<Documento | null>(null);
     const [acessosPop, setAcessosPop] = useState({
         setoresAcessiveis: [] as string[],
         podeUpload: false,
@@ -61,9 +61,6 @@ export default function PaginaDocumentos() {
     const [modalAcessosAberto, setModalAcessosAberto] = useState(false);
 
     const roleUser = session?.user?.role?.toUpperCase().trim() || "USER";
-    const isAdmin = roleUser === "ADMIN";
-    const isCeo = roleUser === "CEO";
-    const rh = roleUser === "RECURSOS HUMANOS";
     const ficharioAtivo = setorAtivo;
 
     useEffect(() => {
