@@ -64,7 +64,15 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
     const [novoServicoNome, setNovoServicoNome] = useState("");
 
     const listaServicos = ["Habilitação RADAR - 50K", "Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO", "TTD 409", "Recuperação AFRMM", "Outras Recuperaçoes Tributarias"];
+    const SERVICOS_COM_EMBASAMENTO = ["Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO"];
+    const embasamentoDesbloqueado = SERVICOS_COM_EMBASAMENTO.some(s => servicosSelecionados.includes(s));
 
+
+    const [embasamento, setEmbasamento] = useState(cliente?.embasamento || "");
+    const [origemLead, setOrigemLead] = useState(cliente?.origemLead || "");
+
+    const listaEmbasamentos = ["Disponibilidade Financeira", "Início ou Retomada", "Receita Bruta (DAS)", "Receita Bruta (CPRB)"];
+    const listaOrigensLead = ["Tráfego Pago (Meta - Instagram)", "Tráfego Pago (Google)", "Indicação Parceiro", "Indicação Cliente", "Evento", "China"];
 
     const [dataCS, setDataCS] = useState(new Date().toISOString().split('T')[0]);
     const [dataFeedback, setDataFeedback] = useState(new Date().toISOString().split('T')[0]);
@@ -315,6 +323,9 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
             setDataConstituicao(cliente.dataConstituicao || "");
             setRegimeTributario(cliente.regimeTributario || "");
             setUf(cliente.uf || "");
+            setEmbasamento(cliente.embasamento || "");
+            setOrigemLead(cliente.origemLead || "");
+            setServicosSelecionados(cliente.servicos ? cliente.servicos.split(",").map((s: string) => s.trim()) : []);
 
             setEditandoDados(false);
         }
@@ -406,7 +417,9 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                 dataConstituicao: dataConstituicao,
                 regimeTributario: regimeTributario,
                 uf: uf,
-                servicos: servicosSelecionados
+                servicos: servicosSelecionados,
+                embasamento: embasamentoDesbloqueado ? embasamento || null : null,
+                origemLead: origemLead || null,
             },
             session?.user?.nome || "Analista"
         );
@@ -589,7 +602,7 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
 
 
 
-                    <section className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-6 border-t border-white/5">
+                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 pt-6 border-t border-white/5">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-indigo-400 ml-1 tracking-widest">Status Atual</label>
                             <select
@@ -658,6 +671,42 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                             )}
                         </div>
 
+                        {/* EMBASAMENTO */}
+                        <div className="space-y-2">
+                            <label className={`text-[10px] font-black uppercase ml-1 tracking-widest flex items-center gap-1 ${embasamentoDesbloqueado ? "text-indigo-400" : "text-slate-600"}`}>
+                                Embasamento
+                                {!embasamentoDesbloqueado && <span className="text-[7px] bg-slate-800 px-1.5 py-0.5 rounded-full text-slate-600">150K/Ilimitado</span>}
+                            </label>
+                            <select
+                                disabled={!editandoDados || !embasamentoDesbloqueado}
+                                value={embasamento}
+                                onChange={(e) => setEmbasamento(e.target.value)}
+                                className={`w-full border rounded-xl p-3 text-sm outline-none transition-all appearance-none ${editandoDados && embasamentoDesbloqueado ? "bg-indigo-500/5 border-indigo-500/20 text-indigo-400 focus:border-indigo-500 cursor-pointer" : "bg-slate-900/20 border-slate-800/30 text-slate-600 cursor-not-allowed"}`}
+                            >
+                                <option value="">Não definido</option>
+                                {listaEmbasamentos.map(e => <option key={e} value={e} className="bg-slate-900">{e}</option>)}
+                                {embasamento && !listaEmbasamentos.includes(embasamento) && (
+                                    <option value={embasamento} className="bg-slate-900">{embasamento}</option>
+                                )}
+                            </select>
+                        </div>
+
+                        {/* ORIGEM DO LEAD */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-indigo-400 ml-1 tracking-widest">Origem do Lead</label>
+                            <select
+                                disabled={!editandoDados}
+                                value={origemLead}
+                                onChange={(e) => setOrigemLead(e.target.value)}
+                                className={`w-full border rounded-xl p-3 text-sm outline-none transition-all appearance-none ${editandoDados ? "bg-indigo-500/5 border-indigo-500/20 text-indigo-400 focus:border-indigo-500 cursor-pointer" : "bg-slate-900/30 border-slate-800/50 text-indigo-400/70"}`}
+                            >
+                                <option value="">Não definido</option>
+                                {listaOrigensLead.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
+                                {origemLead && !listaOrigensLead.includes(origemLead) && (
+                                    <option value={origemLead} className="bg-slate-900">{origemLead}</option>
+                                )}
+                            </select>
+                        </div>
 
                     </section>
 

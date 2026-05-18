@@ -157,6 +157,8 @@ model clientes {
   logFeedback         logFeedback[]
   logAlteracao        logAlteracao[]
   nomeGoogle          String?
+  embasamento         String?
+  origemLead          String?
 
   crm_oportunidades crm_oportunidades[]
   crm_contatos      crm_contatos[]

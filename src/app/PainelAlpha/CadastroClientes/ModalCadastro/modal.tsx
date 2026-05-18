@@ -3,9 +3,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import { X, Search, Laptop, UserCheck, Calendar as CalendarIcon, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { X, Search, Laptop, UserCheck, Calendar as CalendarIcon, Plus, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from 'sonner';
-import { CadastrarCliente } from "@/actions/Clientes";
+import { CadastrarCliente, verificarCNPJDuplicado } from "@/actions/Clientes";
 
 export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
 
@@ -18,9 +18,20 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
     const [novoServicoNome, setNovoServicoNome] = useState("");
     const [isCriandoAnalista, setIsCriandoAnalista] = useState(false);
     const [novoAnalistaNome, setNovoAnalistaNome] = useState("");
+    const [embasamentoSelecionado, setEmbasamentoSelecionado] = useState("");
+    const [showEmbasamento, setShowEmbasamento] = useState(false);
+    const [isCriandoEmbasamento, setIsCriandoEmbasamento] = useState(false);
+    const [novoEmbasamentoNome, setNovoEmbasamentoNome] = useState("");
+    const [listaEmbasamentos, setListaEmbasamentos] = useState(["Disponibilidade Financeira", "Início ou Retomada", "Receita Bruta (DAS)", "Receita Bruta (CPRB)"]);
+    const [origemLeadSelecionada, setOrigemLeadSelecionada] = useState("");
+    const [showOrigemLead, setShowOrigemLead] = useState(false);
+    const [isCriandoOrigemLead, setIsCriandoOrigemLead] = useState(false);
+    const [novaOrigemLeadNome, setNovaOrigemLeadNome] = useState("");
+    const [listaOrigensLead, setListaOrigensLead] = useState(["Tráfego Pago (Meta - Instagram)", "Tráfego Pago (Google)", "Indicação Parceiro", "Indicação Cliente", "Evento", "China"]);
     const [cnpj, setCnpj] = useState("");
     const [carregando, setCarregando] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [modalDuplicata, setModalDuplicata] = useState<{ aberto: boolean; razaoSocial: string }>({ aberto: false, razaoSocial: "" });
     const [dadosEmpresa, setDadosEmpresa] = useState({
         razaoSocial: "",
         nomeFantasia: "",
@@ -35,6 +46,8 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
     ]);
 
     const listaServicos = ["Habilitação RADAR - 50K", "Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO", "TTD 409", "Recuperação AFRMM", "Outras Recuperaçoes Tributarias"];
+    const SERVICOS_COM_EMBASAMENTO = ["Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO"];
+    const embasamentoDesbloqueado = SERVICOS_COM_EMBASAMENTO.some(s => servicosSelecionados.includes(s));
     const listaAnalistas = ["Vitor", "Maria", "Kaline", "Marcelo"];
 
     const updateSocio = (index: number, field: string, value: string) => {
@@ -43,9 +56,8 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
         setSocios(novosSocios);
     };
 
-    const handleConsultarCNPJ = async () => {
+    const executarConsultaCNPJ = async () => {
         const cnpjLimpo = cnpj.replace(/\D/g, "");
-        if (cnpjLimpo.length !== 14) return toast.error("CNPJ Inválido!");
         setCarregando(true);
         try {
             const res = await fetch(`/api/ReceitaFederal?cnpj=${cnpjLimpo}`);
@@ -69,6 +81,19 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
         }
     };
 
+    const handleConsultarCNPJ = async () => {
+        const cnpjLimpo = cnpj.replace(/\D/g, "");
+        if (cnpjLimpo.length !== 14) return toast.error("CNPJ Inválido!");
+
+        const { existe, razaoSocial } = await verificarCNPJDuplicado(cnpjLimpo);
+        if (existe) {
+            setModalDuplicata({ aberto: true, razaoSocial: razaoSocial || "" });
+            return;
+        }
+
+        await executarConsultaCNPJ();
+    };
+
     const handleFinalizar = async () => {
         if (!dadosEmpresa.razaoSocial || !analistaSelecionado) {
             return toast.error("Preencha o CNPJ e o Analista!");
@@ -89,6 +114,8 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
             ...dadosEmpresa,
             servicos: servicosSelecionados,
             analistaResponsavel: analistaSelecionado,
+            embasamento: embasamentoDesbloqueado ? embasamentoSelecionado || null : null,
+            origemLead: origemLeadSelecionada || null,
             dataContratacao
         };
 
@@ -106,8 +133,45 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
 
     if (!isOpen) return null;
 
+    const ModalDuplicata = () => (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#0b1220] border border-amber-500/30 rounded-[2rem] p-8 max-w-sm w-full mx-4 shadow-2xl shadow-amber-900/20">
+                <div className="flex flex-col items-center text-center gap-4">
+                    <div className="p-4 bg-amber-500/10 rounded-full border border-amber-500/20">
+                        <AlertTriangle size={36} className="text-amber-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-black uppercase text-white tracking-tighter">CNPJ já cadastrado</h3>
+                        {modalDuplicata.razaoSocial && (
+                            <p className="text-[11px] text-amber-400 font-bold mt-1 uppercase">{modalDuplicata.razaoSocial}</p>
+                        )}
+                        <p className="text-[10px] text-slate-400 mt-3 font-bold">Este CNPJ já existe na base de clientes. Deseja consultar mesmo assim e cadastrar novamente?</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                        <button
+                            onClick={() => setModalDuplicata({ aberto: false, razaoSocial: "" })}
+                            className="py-3 bg-slate-900 hover:bg-slate-800 text-slate-400 text-[9px] font-black uppercase rounded-xl transition-all"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={async () => {
+                                setModalDuplicata({ aberto: false, razaoSocial: "" });
+                                await executarConsultaCNPJ();
+                            }}
+                            className="py-3 bg-amber-600 hover:bg-amber-500 text-white text-[9px] font-black uppercase rounded-xl transition-all"
+                        >
+                            Consultar mesmo assim
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+            {modalDuplicata.aberto && <ModalDuplicata />}
             <div className="bg-[#0b1220] border border-white/10 w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] shadow-2xl relative custom-scrollbar">
 
                 {/* HEADER */}
@@ -182,7 +246,7 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
 
 
                     {/* SEÇÃO 2: OPERACIONAL (BOTÕES FUNCIONAIS) */}
-                    <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-white/5">
+                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6 border-t border-white/5">
                         <div
 
                             className="space-y-2 relative">
@@ -257,6 +321,43 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
                                 </div>
                             )}
                         </div>
+                        {/* EMBASAMENTO */}
+                        <div className="space-y-2 relative">
+                            <label className={`text-[10px] font-black uppercase ml-1 flex items-center gap-2 ${embasamentoDesbloqueado ? "text-indigo-400" : "text-slate-600"}`}>
+                                Embasamento
+                                {!embasamentoDesbloqueado && <span className="text-[8px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-500">Revisão 150K / Ilimitado</span>}
+                            </label>
+                            <button
+                                disabled={!embasamentoDesbloqueado}
+                                onClick={() => embasamentoDesbloqueado && setShowEmbasamento(!showEmbasamento)}
+                                className={`w-full border rounded-xl py-3 px-4 text-sm flex justify-between items-center transition-all ${embasamentoDesbloqueado ? "bg-slate-950 border-slate-800 text-slate-300 hover:border-indigo-500/50 cursor-pointer" : "bg-slate-900/30 border-slate-800/30 text-slate-600 cursor-not-allowed"}`}
+                            >
+                                {embasamentoSelecionado || "Selecionar Embasamento"}
+                                <Search size={16} className={embasamentoDesbloqueado ? "text-indigo-500" : "text-slate-700"} />
+                            </button>
+                            {showEmbasamento && embasamentoDesbloqueado && (
+                                <div className="absolute top-full mt-2 w-full bg-slate-900 border border-white/10 rounded-2xl p-4 z-30 shadow-2xl animate-in zoom-in-95 duration-200">
+                                    <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                        {listaEmbasamentos.map(e => (
+                                            <button key={e} onClick={() => { setEmbasamentoSelecionado(e); setShowEmbasamento(false); }} className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all ${embasamentoSelecionado === e ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-white/5 hover:text-indigo-400"}`}>{e}</button>
+                                        ))}
+                                        {!isCriandoEmbasamento ? (
+                                            <button onClick={() => setIsCriandoEmbasamento(true)} className="w-full text-left p-3 rounded-xl text-[10px] font-black text-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center gap-2 border-t border-white/5 mt-2 pt-3">
+                                                <Plus size={14} /> NOVO EMBASAMENTO
+                                            </button>
+                                        ) : (
+                                            <div className="mt-2 p-2 border-t border-white/5 space-y-2 animate-in slide-in-from-top-2">
+                                                <input autoFocus type="text" placeholder="Nome do embasamento..." value={novoEmbasamentoNome} onChange={(e) => setNovoEmbasamentoNome(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-white outline-none focus:border-emerald-500" />
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => { if (novoEmbasamentoNome) { setListaEmbasamentos(prev => [...prev, novoEmbasamentoNome]); setEmbasamentoSelecionado(novoEmbasamentoNome); setShowEmbasamento(false); setIsCriandoEmbasamento(false); setNovoEmbasamentoNome(""); } }} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black p-2 rounded-lg uppercase transition-colors">Confirmar</button>
+                                                    <button onClick={() => setIsCriandoEmbasamento(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-400 text-[9px] font-black p-2 rounded-lg uppercase transition-colors">Sair</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="space-y-2 relative">
                             <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Analista Responsável</label>
@@ -266,6 +367,8 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
                             >
                                 {analistaSelecionado || "Escolher Analista"} <UserCheck size={16} className="text-indigo-500" />
                             </button>
+
+                            
 
                             {/* SUB-MODAL ANALISTAS */}
                             {showAnalistas && (
@@ -327,6 +430,39 @@ export default function ModalCadastroCliente({ isOpen, onClose }: { isOpen: bool
                             )}
                         </div>
 
+
+                        
+
+                        {/* ORIGEM DO LEAD */}
+                        <div className="space-y-2 relative">
+                            <label className="text-[10px] font-black uppercase text-indigo-400 ml-1">Origem do Lead</label>
+                            <button onClick={() => setShowOrigemLead(!showOrigemLead)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-slate-300 flex justify-between items-center hover:border-indigo-500/50 transition-all">
+                                {origemLeadSelecionada || "Canal de Aquisição"}
+                                <UserCheck size={16} className="text-indigo-500" />
+                            </button>
+                            {showOrigemLead && (
+                                <div className="absolute top-full mt-2 w-full bg-slate-900 border border-white/10 rounded-2xl p-4 z-30 shadow-2xl animate-in zoom-in-95 duration-200">
+                                    <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                        {listaOrigensLead.map(o => (
+                                            <button key={o} onClick={() => { setOrigemLeadSelecionada(o); setShowOrigemLead(false); }} className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all ${origemLeadSelecionada === o ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-white/5 hover:text-indigo-400"}`}>{o}</button>
+                                        ))}
+                                        {!isCriandoOrigemLead ? (
+                                            <button onClick={() => setIsCriandoOrigemLead(true)} className="w-full text-left p-3 rounded-xl text-[10px] font-black text-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center gap-2 border-t border-white/5 mt-2 pt-3">
+                                                <Plus size={14} /> NOVA ORIGEM
+                                            </button>
+                                        ) : (
+                                            <div className="mt-2 p-2 border-t border-white/5 space-y-2 animate-in slide-in-from-top-2">
+                                                <input autoFocus type="text" placeholder="Nome da origem..." value={novaOrigemLeadNome} onChange={(e) => setNovaOrigemLeadNome(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-white outline-none focus:border-emerald-500" />
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => { if (novaOrigemLeadNome) { setListaOrigensLead(prev => [...prev, novaOrigemLeadNome]); setOrigemLeadSelecionada(novaOrigemLeadNome); setShowOrigemLead(false); setIsCriandoOrigemLead(false); setNovaOrigemLeadNome(""); } }} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black p-2 rounded-lg uppercase transition-colors">Confirmar</button>
+                                                    <button onClick={() => setIsCriandoOrigemLead(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-400 text-[9px] font-black p-2 rounded-lg uppercase transition-colors">Sair</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Data de Contratação</label>

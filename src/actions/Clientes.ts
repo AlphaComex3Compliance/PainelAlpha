@@ -2,6 +2,15 @@
 import db from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+export async function verificarCNPJDuplicado(cnpj: string): Promise<{ existe: boolean; razaoSocial?: string }> {
+  const cnpjLimpo = cnpj.replace(/\D/g, "");
+  const cliente = await db.clientes.findFirst({
+    where: { cnpj: cnpjLimpo },
+    select: { razaoSocial: true },
+  });
+  return { existe: !!cliente, razaoSocial: cliente?.razaoSocial };
+}
+
 export async function CadastrarCliente(dados: any, socios: any[]) {
   try {
     const res = await db.clientes.create({
@@ -14,6 +23,8 @@ export async function CadastrarCliente(dados: any, socios: any[]) {
         regimeTributario: dados.regimeTributario || "",
         servicos: Array.isArray(dados.servicos) ? dados.servicos.join(", ") : dados.servicos,
         analistaResponsavel: dados.analistaResponsavel || "",
+        embasamento: dados.embasamento || null,
+        origemLead: dados.origemLead || null,
         dataContratacao: dados.dataContratacao ? new Date(dados.dataContratacao).toISOString() : null,
         dataExito: null,
         createdAt: new Date().toISOString(),
@@ -237,6 +248,8 @@ export async function salvarAlteracoesGeral(clienteId: number, dadosNovos: any, 
         regimeTributario: dadosNovos.regimeTributario,
         uf: dadosNovos.uf,
         servicos: Array.isArray(dadosNovos.servicos) ? dadosNovos.servicos.join(", ") : dadosNovos.servicos,
+        embasamento: dadosNovos.embasamento ?? null,
+        origemLead: dadosNovos.origemLead ?? null,
         dataExito: dadosNovos.dataExito ? new Date(dadosNovos.dataExito).toISOString() : (dadosNovos.status === "Deferido" ? new Date().toISOString() : null),
         updatedAt: new Date().toISOString(),
       }
