@@ -48,6 +48,10 @@ model usuarios {
 
   crm_oportunidades crm_oportunidades[] @relation("CrmOportunidadesResponsavel")
   crm_atividades    crm_atividades[]    @relation("CrmAtividadesAutor")
+
+  holeritesColaborador Holerite[]   @relation("HoleriteColaborador")
+  holeriteUploads      Holerite[]   @relation("HoleriteUploader")
+  popAcessos           PopAcesso[]  @relation("PopAcessoUsuario")
 }
 
 model chamados {
@@ -832,4 +836,58 @@ model MetaEquipe {
 
   @@unique([mes, ano])
   @@map("meta_equipe")
+}
+
+// ─── Alpha POP — Acessos Granulares por Setor ─────────────────────────────────
+
+model PopAcesso {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int
+  setor         String
+  podeVer       Boolean  @default(true)
+  podeUpload    Boolean  @default(false)
+  podeGerenciar Boolean  @default(false)
+  concedidoPor  Int
+  concedidoEm   DateTime @default(now())
+
+  usuario usuarios @relation("PopAcessoUsuario", fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, setor])
+  @@index([usuarioId])
+  @@index([setor])
+}
+
+// ─── Alpha Holerites ──────────────────────────────────────────────────────────
+
+model Holerite {
+  id            Int       @id @default(autoincrement())
+  colaboradorId Int
+  mes           Int
+  ano           Int
+  competencia   String
+
+  arquivoUrl      String
+  arquivoNome     String
+  arquivoTamanho  Int
+
+  assinado    Boolean   @default(false)
+  assinadoEm  DateTime?
+
+  status         String    @default("PENDENTE")
+  validadoPor    Int?
+  validadoEm     DateTime?
+  motivoRejeicao String?
+
+  uploadedAt   DateTime @default(now())
+  uploadedById Int
+  observacao   String?
+
+  colaborador usuarios @relation("HoleriteColaborador", fields: [colaboradorId], references: [id])
+  uploadedBy  usuarios @relation("HoleriteUploader", fields: [uploadedById], references: [id])
+
+  @@unique([colaboradorId, mes, ano])
+  @@index([colaboradorId])
+  @@index([ano, mes])
+  @@index([status])
+  @@map("holerite")
 }

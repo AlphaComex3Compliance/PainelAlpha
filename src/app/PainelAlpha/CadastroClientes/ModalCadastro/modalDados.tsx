@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Plus, ThumbsUp, ThumbsDown, Minus, Calendar, User, MessageSquare, Save, Star, Search, CheckCircle2, TrendingUp, LockOpen, Edit3, Check, Trash2, AlertTriangle } from "lucide-react";
-import { adicionarSocio, atualizarStatusCliente, excluirLogCS, excluirLogFeedback, salvarAlteracoesGeral, salvarAlteracoesGestao, salvarLogCS, salvarLogFeedback } from '@/actions/Clientes';
+import { adicionarSocio, atualizarLogCS, atualizarSocio, atualizarStatusCliente, excluirLogCS, excluirLogFeedback, salvarAlteracoesGeral, salvarAlteracoesGestao, salvarLogCS, salvarLogFeedback } from '@/actions/Clientes';
 import { toast } from 'sonner';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -92,6 +92,19 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
     const [showNovoSocio, setShowNovoSocio] = useState(false);
     const [novoSocio, setNovoSocio] = useState({ nome: "", telefone: "", dataNascimento: "", vinculo: "", obs: "" });
     const [enviandoFeedback, setEnviandoFeedback] = useState(false);
+
+    // Edição inline de sócios
+    const [editandoSocioId, setEditandoSocioId] = useState<number | null>(null);
+    const [socioEditForm, setSocioEditForm] = useState({ nome: "", telefone: "", dataNascimento: "", vinculo: "", obs: "" });
+    const [salvandoSocio, setSalvandoSocio] = useState(false);
+
+    // Edição de log CS
+    const [showEditCS, setShowEditCS] = useState(false);
+    const [csEditando, setCsEditando] = useState<any>(null);
+    const [csEditSentimento, setCsEditSentimento] = useState<"pos" | "neg" | "na" | null>(null);
+    const [csEditObs, setCsEditObs] = useState("");
+    const [csEditData, setCsEditData] = useState("");
+    const [salvandoCS, setSalvandoCS] = useState(false);
 
 
     useEffect(() => {
@@ -192,6 +205,56 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
         }
     };
 
+
+    const handleIniciarEdicaoSocio = (s: any) => {
+        setEditandoSocioId(s.id);
+        setSocioEditForm({ nome: s.nome || "", telefone: s.telefone || "", dataNascimento: s.dataNascimento || "", vinculo: s.vinculo || "", obs: s.obs || "" });
+    };
+
+    const handleSalvarEdicaoSocio = async (socioId: number) => {
+        if (!socioEditForm.nome) return toast.error("Nome é obrigatório");
+        setSalvandoSocio(true);
+        const res = await atualizarSocio(socioId, socioEditForm);
+        if (res.success) {
+            toast.success("Sócio atualizado!");
+            setListaSocios(prev => prev.map(s => s.id === socioId ? { ...s, ...socioEditForm } : s));
+            setEditandoSocioId(null);
+            if (aoSalvar) await aoSalvar();
+        } else {
+            toast.error("Erro ao salvar.");
+        }
+        setSalvandoSocio(false);
+    };
+
+    const handleAbrirEditCS = (log: any) => {
+        setCsEditando(log);
+        setCsEditSentimento(log.sentimento || null);
+        setCsEditObs(log.observacao || "");
+        const dataRaw = log.data_registro || log.dataRegistro || log.createdAt;
+        if (dataRaw) {
+            const d = new Date(dataRaw);
+            setCsEditData(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : "");
+        }
+        setShowEditCS(true);
+    };
+
+    const handleSalvarEditCS = async () => {
+        if (!csEditSentimento || csEditObs.length < 10) return toast.error("Dados inválidos");
+        setSalvandoCS(true);
+        const res = await atualizarLogCS(csEditando.id, { sentimento: csEditSentimento, observacao: csEditObs, dataRegistro: csEditData });
+        if (res.success) {
+            toast.success("CS atualizado!");
+            setListaLogsCS(prev => prev.map(l => l.id === csEditando.id
+                ? { ...l, sentimento: csEditSentimento, observacao: csEditObs, data_registro: csEditData ? new Date(`${csEditData}T12:00:00`).toISOString() : l.data_registro }
+                : l));
+            setShowEditCS(false);
+            setCsEditando(null);
+            if (aoSalvar) await aoSalvar();
+        } else {
+            toast.error("Erro ao atualizar.");
+        }
+        setSalvandoCS(false);
+    };
 
     useEffect(() => {
         if (status === "Deferido" && !dataExitoManual) {
@@ -681,54 +744,132 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                                         <th className="px-6 py-4 border-b border-white/5 text-center">Nascimento</th>
                                         <th className="px-6 py-4 border-b border-white/5">Vinculo</th>
                                         <th className="px-6 py-4 border-b border-white/5">Observações</th>
+                                        <th className="px-6 py-4 border-b border-white/5 text-center">Ação</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {listaSocios.length > 0 ? (
                                         listaSocios.map((s: any, i: number) => (
-                                            <tr key={s.id || i} className="hover:bg-white/[0.02] transition-colors group">
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-white uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
-                                                        {s.nome}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {s.telefone ? (
-                                                        <a
-                                                            href={`https://wa.me/${s.telefone.replace(/\D/g, '')}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[11px] font-mono text-indigo-400 hover:text-green-400 transition-all flex items-center gap-2"
+                                            editandoSocioId === s.id ? (
+                                                <tr key={s.id || i} className="bg-indigo-500/5 border-l-2 border-indigo-500">
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            value={socioEditForm.nome}
+                                                            onChange={e => setSocioEditForm({ ...socioEditForm, nome: e.target.value.toUpperCase() })}
+                                                            className="w-full bg-black border border-indigo-500/30 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500 uppercase"
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            value={socioEditForm.telefone}
+                                                            onChange={e => setSocioEditForm({ ...socioEditForm, telefone: e.target.value })}
+                                                            className="w-full bg-black border border-indigo-500/30 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500"
+                                                            placeholder="Telefone"
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            value={socioEditForm.dataNascimento}
+                                                            onChange={e => setSocioEditForm({ ...socioEditForm, dataNascimento: e.target.value })}
+                                                            className="w-full bg-black border border-indigo-500/30 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500"
+                                                            placeholder="DD/MM/AAAA"
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <select
+                                                            value={socioEditForm.vinculo}
+                                                            onChange={e => setSocioEditForm({ ...socioEditForm, vinculo: e.target.value })}
+                                                            className="w-full bg-black border border-indigo-500/30 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500 cursor-pointer appearance-none"
                                                         >
-                                                            <span className="opacity-50">WA:</span> {s.telefone}
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-xs font-mono text-slate-700">---</span>
-                                                    )}
-                                                </td>
-
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="text-xs font-bold text-slate-400">
-                                                        {s.dataNascimento || "---"}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-6 py-4">
-                                                    <span className="text-[10px] font-black text-indigo-500/70 uppercase tracking-tighter bg-indigo-500/5 px-2 py-1 rounded-md border border-indigo-500/10">
-                                                        {s.vinculo || "NÃO INFORMADO"}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-6 py-4">
-                                                    <span className="text-[11px] text-slate-500 italic leading-relaxed block max-w-xs truncate" title={s.obs}>
-                                                        {s.obs || "---"}
-                                                    </span>
-                                                </td>
-                                            </tr>
+                                                            <option value="">SELECIONE...</option>
+                                                            <option value="Sócio Proprietário">Sócio Proprietário</option>
+                                                            <option value="Sócio Oculto">Sócio Oculto</option>
+                                                            <option value="Funcionário/Colaborador">Funcionário/Colaborador</option>
+                                                            <option value="Contador Interno">Contador Interno</option>
+                                                            <option value="Contador Externo">Contador Externo</option>
+                                                            <option value="Despachante Aduaneiro">Despachante Aduaneiro</option>
+                                                            <option value="Outro">Outro</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            value={socioEditForm.obs}
+                                                            onChange={e => setSocioEditForm({ ...socioEditForm, obs: e.target.value })}
+                                                            className="w-full bg-black border border-indigo-500/30 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500"
+                                                            placeholder="Observação"
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => handleSalvarEdicaoSocio(s.id)}
+                                                                disabled={salvandoSocio}
+                                                                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all active:scale-90 disabled:opacity-50"
+                                                                title="Salvar"
+                                                            >
+                                                                <Check size={14} strokeWidth={3} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setEditandoSocioId(null)}
+                                                                className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg transition-all active:scale-90"
+                                                                title="Cancelar"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                <tr key={s.id || i} className="hover:bg-white/[0.02] transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-sm font-bold text-white uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                                                            {s.nome}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {s.telefone ? (
+                                                            <a
+                                                                href={`https://wa.me/${s.telefone.replace(/\D/g, '')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-[11px] font-mono text-indigo-400 hover:text-green-400 transition-all flex items-center gap-2"
+                                                            >
+                                                                <span className="opacity-50">WA:</span> {s.telefone}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-xs font-mono text-slate-700">---</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="text-xs font-bold text-slate-400">
+                                                            {s.dataNascimento || "---"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-[10px] font-black text-indigo-500/70 uppercase tracking-tighter bg-indigo-500/5 px-2 py-1 rounded-md border border-indigo-500/10">
+                                                            {s.vinculo || "NÃO INFORMADO"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-[11px] text-slate-500 italic leading-relaxed block max-w-xs truncate" title={s.obs}>
+                                                            {s.obs || "---"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <button
+                                                            onClick={() => handleIniciarEdicaoSocio(s)}
+                                                            className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all duration-200 active:scale-90"
+                                                            title="Editar Sócio"
+                                                        >
+                                                            <Edit3 size={15} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            )
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-16 text-center text-slate-800 text-[10px] font-black uppercase tracking-[0.3em] italic opacity-40">
+                                            <td colSpan={6} className="px-6 py-16 text-center text-slate-800 text-[10px] font-black uppercase tracking-[0.3em] italic opacity-40">
                                                 Nenhum sócio vinculado a este CNPJ
                                             </td>
                                         </tr>
@@ -804,7 +945,14 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                                                 </td>
 
                                                 <td className="px-6 py-4 text-center">
-                                                    <div className="flex items-center justify-center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleAbrirEditCS(log); }}
+                                                            className="cursor-pointer p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all duration-200 active:scale-90"
+                                                            title="Editar Registro"
+                                                        >
+                                                            <Edit3 size={15} />
+                                                        </button>
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -1197,6 +1345,91 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                                     className="cursor-pointer flex-1 py-4 bg-blue-600 disabled:bg-slate-800/50 disabled:text-slate-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all"
                                 >
                                     Confirmar Pedido
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showEditCS && csEditando && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="bg-slate-900 border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-3xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h4 className="text-lg font-black text-white uppercase">Editar <span className="text-emerald-500">CS</span></h4>
+                            <button onClick={() => { setShowEditCS(false); setCsEditando(null); }}><X size={20} className="cursor-pointer text-slate-500" /></button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-end px-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                                        <MessageSquare size={12} className="text-emerald-500" /> Relato do Atendimento
+                                    </label>
+                                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${csEditObs.length >= 10 && csEditObs.length <= 140 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                        {csEditObs.length}/140
+                                    </span>
+                                </div>
+                                <textarea
+                                    value={csEditObs}
+                                    onChange={(e) => setCsEditObs(e.target.value)}
+                                    className={`w-full bg-slate-950/80 border-2 rounded-2xl p-4 text-sm text-white min-h-[120px] outline-none transition-all resize-none shadow-inner
+                                    ${csEditObs.length > 0 && (csEditObs.length < 10 || csEditObs.length > 140)
+                                            ? 'border-rose-500/30 focus:border-rose-500'
+                                            : 'border-slate-800 focus:border-emerald-500'}`}
+                                    placeholder="O que o cliente relatou neste contato?..."
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase text-slate-500 block text-center">Resultado do Feedback</label>
+                                <div className="flex justify-between items-center gap-4">
+                                    <button
+                                        onClick={() => setCsEditSentimento("pos")}
+                                        className={`cursor-pointer flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${csEditSentimento === "pos" ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "bg-slate-950 border-white/5 text-slate-600 hover:text-white"}`}
+                                    >
+                                        <ThumbsUp size={22} /> <span className="text-[9px] font-black uppercase">Positivo</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setCsEditSentimento("neg")}
+                                        className={`cursor-pointer flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${csEditSentimento === "neg" ? "bg-rose-500/20 border-rose-500 text-rose-500" : "bg-slate-950 border-white/5 text-slate-600 hover:text-white"}`}
+                                    >
+                                        <ThumbsDown size={22} /> <span className="text-[9px] font-black uppercase">Negativo</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setCsEditSentimento("na")}
+                                        className={`cursor-pointer flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${csEditSentimento === "na" ? "bg-slate-700 border-white/30 text-white" : "bg-slate-950 border-white/5 text-slate-600 hover:text-white"}`}
+                                    >
+                                        <Minus size={22} /> <span className="text-[9px] font-black uppercase">N/A</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 px-1">
+                                    <Calendar size={12} className="text-emerald-500" /> Data do Atendimento
+                                </label>
+                                <input
+                                    type="date"
+                                    value={csEditData}
+                                    onChange={(e) => setCsEditData(e.target.value)}
+                                    className="w-full bg-slate-950/80 border-2 border-slate-800 rounded-2xl p-4 text-sm text-white outline-none transition-all focus:border-emerald-500 [color-scheme:dark]"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => { setShowEditCS(false); setCsEditando(null); }}
+                                    className="cursor-pointer flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleSalvarEditCS}
+                                    disabled={!isTextoValido(csEditObs) || !csEditSentimento || salvandoCS}
+                                    className="cursor-pointer flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {salvandoCS ? "Salvando..." : "Salvar Edição"}
                                 </button>
                             </div>
                         </div>

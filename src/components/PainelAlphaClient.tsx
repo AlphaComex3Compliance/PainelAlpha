@@ -83,8 +83,6 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
         { id: "cadastro", title: "Gestão de Equipe", desc: "Gerenciamento de contas, permissões e status de usuários.", img: "../people_10893485.png", link: "/PainelAlpha/cadastro", color: "from-purple-600/20", tag: "Admin" },
         { id: "Reservas", title: "Reserva de Salas", desc: "Agendamento de salas com controle de data e horários.", img: "../icons8-sala-de-reuniões-64.png", link: "/PainelAlpha/ReservaSalas", color: "from-emerald-600/20", tag: "utilidades" },
         { id: "Documentos", title: "POP", desc: "Documentos de guia e normas para funções.", img: "../arquivo.png", link: "/PainelAlpha/DocsAlpha", color: "from-indigo-600/20", tag: "POP" },
-        { id: "UpDocumentos", title: "Upload POP", desc: "Portal para transmissão de novos arquivos ao POP.", img: "../pasta.png", link: "/PainelAlpha/GerenciamentoArquivos", color: "from-rose-600/20", tag: "POP" },
-        { id: "Historico", title: "Gerenciamento do POP", desc: "Controle e rastreabilidade do histórico do POP.", img: "../historico.png", link: "/PainelAlpha/HistoricoArquivos", color: "from-cyan-600/20", tag: "POP" },
         { id: "Cliente", title: "SISTEMA CS & NPS", desc: "Controle de CS, NPS e Feedbacks no Google", img: "../local-na-rede-internet.png", link: "/PainelAlpha/CadastroClientes", color: "from-orange-600/20", tag: "CLIENTES" },
         { id: "Senhas", title: "Gerenciamento de Acessos", desc: "Sistema de gerenciamento de senhas e acessos.", img: "../senha.png", link: "/PainelAlpha/AlphaVault", color: "from-red-600/20", tag: "Administração" },
         { id: "Perse", title: "Analise Fiscal", desc: "Sistema de analise previa para Oportunidades tributarias", img: "../planejamento-tributario.png", link: "/PainelAlpha/AlphaConnect", color: "from-green-600/20", tag: "tributario" },
@@ -101,6 +99,7 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
         { id: "gerenciamentoTarefas", title: "Gerenciamento de Tarefas", desc: "Gerenciamento de Tarefas", img: "../task-management.png", link: "/PainelAlpha/PainelTarefas/GerenciarTarefas/GerenciamentoUserTarefa", color: "from-pink-600/20", tag: "Comercial"},
         { id: "crm", title: "Alpha CRM", desc: "Gestão comercial: pipeline, contatos, atividades e relatórios.", img: "../management.png", link: "/PainelAlpha/AlphaCRM", color: "from-violet-600/20", tag: "CRM" },
         { id: "metas", title: "Alpha Metas", desc: "Painel de metas e performance comercial em tempo real.", img: "../revenue.png", link: "/PainelAlpha/Metas", color: "from-emerald-600/20", tag: "Metas" },
+        { id: "holerites", title: "Alpha Holerites", desc: "Envio, validação e gestão de holerites digitais com assinatura Gov.br.", img: "../bank-check.png", link: "/PainelAlpha/Holerites", color: "from-teal-600/20", tag: "RH" },
     ];
 
     const { favoritos, restante } = useMemo(() => {

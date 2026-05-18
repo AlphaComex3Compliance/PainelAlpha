@@ -57,7 +57,9 @@ const MODULOS_SISTEMA = [
   { id: "marketing", label: "Alpha Marketing", desc: "Alpha Marketing"},
   { id: "checkList", label: "Alpha CheckList", desc: "Alpha CheckList"},
   { id: "tarefasComercial", label: "Checklist de Tarefas", desc: " Painel de Tarefas - Comercial"},
-  { id: "gerenciamentoTarefas", label: "Gerenciamento de Tarefas", desc: "Gerenciamento de Tarefas"}
+  { id: "gerenciamentoTarefas", label: "Gerenciamento de Tarefas", desc: "Gerenciamento de Tarefas"},
+  { id: "metas", label: "Painel de Metas", desc: "Metas"},
+  { id: "holerites", label: "Painel de geranciamento de Holerites", desc: "Holerites"}
 
 ];
 

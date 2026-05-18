@@ -315,6 +315,36 @@ export async function excluirLogFeedback(logId: number) {
   }
 }
 
+export async function atualizarSocio(socioId: number, dados: { nome: string; telefone?: string; dataNascimento?: string; vinculo?: string; obs?: string }) {
+  try {
+    await db.socios.update({
+      where: { id: socioId },
+      data: dados,
+    });
+    revalidatePath("/PainelAlpha/CadastroClientes");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function atualizarLogCS(logId: number, dados: { sentimento: string; observacao: string; dataRegistro?: string }) {
+  try {
+    await db.log_cs.update({
+      where: { id: logId },
+      data: {
+        sentimento: dados.sentimento,
+        observacao: dados.observacao,
+        ...(dados.dataRegistro ? { dataRegistro: new Date(`${dados.dataRegistro}T12:00:00`) } : {}),
+      },
+    });
+    revalidatePath("/PainelAlpha/CadastroClientes");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 export async function atualizarStatusCliente(clienteId: number, novoStatus: string) {
   try {
     await db.clientes.update({

@@ -5,13 +5,17 @@ import { useSession } from "next-auth/react";
 import {
     FileText, Eye, Search, ShieldCheck, Globe, ChevronRight, Folder,
     Trash2, ShieldAlert, Lock, Video, Settings, Star, ChevronDown,
-    ChevronUp, GripVertical, Edit3, Check, X, PlayCircle
+    ChevronUp, GripVertical, Edit3, Check, X, PlayCircle,
+    Upload, History, KeyRound
 } from "lucide-react";
+import Link from "next/link";
 import { BotaoVoltar } from "@/components/BotaoVoltar";
 import { toast } from "sonner";
 import AntiCapture from 'react-anticapture';
 import { buscarOrdemPastas, salvarOrdemPastas } from "@/actions/OrdemPastas";
 import { renomearPasta } from "@/actions/RenamePastas";
+import { getAcessosDoUsuario } from "@/actions/PopAcessos";
+import ModalGerenciamentoAcessos from "@/components/pop/ModalGerenciamentoAcessos";
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +52,13 @@ export default function PaginaDocumentos() {
     const [editandoNomePasta, setEditandoNomePasta] = useState<string | null>(null);
     const [novoNomeInput, setNovoNomeInput] = useState("");
     const [docParaExcluir, setDocParaExcluir] = useState<any>(null);
+    const [acessosPop, setAcessosPop] = useState({
+        setoresAcessiveis: [] as string[],
+        podeUpload: false,
+        podeGerenciar: false,
+        ehAdminUser: false,
+    });
+    const [modalAcessosAberto, setModalAcessosAberto] = useState(false);
 
     const roleUser = session?.user?.role?.toUpperCase().trim() || "USER";
     const isAdmin = roleUser === "ADMIN";
@@ -64,6 +75,20 @@ export default function PaginaDocumentos() {
 
     useEffect(() => {
         carregarDocumentos();
+    }, [status]);
+
+    useEffect(() => {
+        if (status !== "authenticated") return;
+        getAcessosDoUsuario().then((res) => {
+            if (res.success) {
+                setAcessosPop({
+                    setoresAcessiveis: res.setoresAcessiveis,
+                    podeUpload: res.podeUpload,
+                    podeGerenciar: res.podeGerenciar,
+                    ehAdminUser: res.ehAdminUser,
+                });
+            }
+        });
     }, [status]);
 
     useEffect(() => {
@@ -154,14 +179,13 @@ export default function PaginaDocumentos() {
         const filtrados = documentos.filter(d => {
             const setorDoc = d.setor?.toUpperCase().trim();
             const abaSelecionada = setorAtivo?.toUpperCase().trim();
-            const temAcessoTotal = isAdmin || rh || isCeo;
 
             if (!d.titulo.toLowerCase().includes(busca.toLowerCase())) return false;
-            if (temAcessoTotal) return setorDoc === abaSelecionada;
+            if (setorDoc !== abaSelecionada) return false;
 
-            const ehRegrasGerais = setorDoc === "Diretrizes";
-            const ehProprioSetor = setorDoc === roleUser;
-            return setorDoc === abaSelecionada && (ehRegrasGerais || ehProprioSetor);
+            const setores = acessosPop.setoresAcessiveis;
+            if (setores.includes("*")) return true;
+            return setores.some(s => s.toUpperCase().trim() === setorDoc);
         });
 
         const agrupados = filtrados.reduce((acc, doc) => {
@@ -182,7 +206,7 @@ export default function PaginaDocumentos() {
         });
 
         return agrupados;
-    }, [documentos, setorAtivo, busca, isAdmin, rh, isCeo, roleUser, ordem]);
+    }, [documentos, setorAtivo, busca, acessosPop, ordem]);
 
     useEffect(() => {
         const sincronizarOrdem = async () => {
@@ -234,14 +258,41 @@ export default function PaginaDocumentos() {
                     </div>
                     <div className="flex flex-wrap justify-center gap-4 lg:gap-6">
                         {SETORES.map(s => {
-                            const podeVer = isAdmin || s === "Diretrizes" || roleUser === s || rh || isCeo;
+                            const setores = acessosPop.setoresAcessiveis;
+                            const podeVer = setores.includes("*") || setores.some(sv => sv.toUpperCase().trim() === s.toUpperCase().trim());
                             if (!podeVer) return null;
                             return (
                                 <button key={s} onClick={() => { setSetorAtivo(s); setDocSelecionado(null); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${setorAtivo === s ? "bg-blue-600 text-white scale-105" : "text-slate-500 hover:bg-white/5"}`}>{s}</button>
                             );
                         })}
                     </div>
-                    <BotaoVoltar />
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {acessosPop.podeUpload && (
+                            <Link
+                                href="/PainelAlpha/GerenciamentoArquivos"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-[9px] font-black uppercase tracking-widest"
+                            >
+                                <Upload size={13} /> Upload
+                            </Link>
+                        )}
+                        {acessosPop.podeGerenciar && (
+                            <Link
+                                href="/PainelAlpha/HistoricoArquivos"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-[9px] font-black uppercase tracking-widest"
+                            >
+                                <History size={13} /> Gerenciar
+                            </Link>
+                        )}
+                        {acessosPop.ehAdminUser && (
+                            <button
+                                onClick={() => setModalAcessosAberto(true)}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-blue-300 hover:border-blue-500/40 transition-all text-[9px] font-black uppercase tracking-widest"
+                            >
+                                <KeyRound size={13} /> Acessos
+                            </button>
+                        )}
+                        <BotaoVoltar />
+                    </div>
                 </div>
 
                 {isTouch ? (
@@ -477,6 +528,10 @@ export default function PaginaDocumentos() {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {modalAcessosAberto && (
+                    <ModalGerenciamentoAcessos onClose={() => setModalAcessosAberto(false)} />
                 )}
 
                 <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.1] overflow-hidden flex flex-wrap gap-20 p-10 rotate-[-15deg]">

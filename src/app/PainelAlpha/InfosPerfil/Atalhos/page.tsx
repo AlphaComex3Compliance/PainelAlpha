@@ -30,8 +30,6 @@ const MODULOS_BASE = [
   { id: "cadastro", title: "Gestão", img: "/people_10893485.png", tag: "Admin" },
   { id: "Reservas", title: "Salas", img: "/icons8-sala-de-reuniões-64.png", tag: "Facilities" },
   { id: "Documentos", title: "POP", img: "/arquivo.png", tag: "Processos" },
-  { id: "UpDocumentos", title: "Upload", img: "/pasta.png", tag: "Arquivos" },
-  { id: "Historico", title: "Gerenciamento do POP", img: "/historico.png", tag: "Auditoria" },
   { id: "Cliente", title: "SISTEMA CS & NPS", img: "/local-na-rede-internet.png", tag: "Comercial" },
   { id: "Senhas", title: "Gerenciamento de Acessos", img: "/senha.png", tag: "Administração" },
   { id: "Perse", title: "Alpha Connect", img: "/planejamento-tributario.png", tag: "Connect" },
@@ -48,6 +46,7 @@ const MODULOS_BASE = [
   { id: "gerenciamentoTarefas", title: "Gerenciamento de Tarefas", img: "/task-management.png", tag: "Comercial" },
   { id: "crm", title: "Alpha CRM", img: "/management.png", tag: "CRM" },
   { id: "metas", title: "Alpha Metas", img: "/revenue.png", tag: "Metas" },
+  { id: "holerites", title: "Holerites", img: "/bank-check.png", tag: "RH" },
 ];
 
 export default function AtalhosPage() {
