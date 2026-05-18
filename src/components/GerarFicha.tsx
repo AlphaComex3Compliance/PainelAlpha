@@ -154,18 +154,28 @@ export const FichaAlphaPDF = ({ dados, userLogado }: { dados: any, userLogado: s
           <View style={styles.row}>
             <View style={[styles.cell, { flex: 1 }]}>
               <Text style={styles.label}>ORIGEM DO LEAD</Text>
-              <View style={styles.optionRow}>
-                <View style={styles.circleFilled} />
-                <Text style={styles.optionText}>
-                  {origemLead === "instagram" && "INSTAGRAM"}
-                  {origemLead === "google" && "GOOGLE"}
-                  {origemLead === "callix" && "CALLIX"}
-                  {origemLead === "parceiro" && (origemDetalhe ? `PARCEIRO: ${origemDetalhe}` : "PARCEIRO")}
-                  {origemLead === "indicacao" && (origemDetalhe ? `INDICAÇÃO: ${origemDetalhe}` : "INDICAÇÃO")}
-                  {origemLead === "outros" && (origemDetalhe ? `OUTROS: ${origemDetalhe}` : "OUTROS")}
-                  {!origemLead && "_______________"}
-                </Text>
-              </View>
+              {origemLead ? (
+                <View style={styles.optionRow}>
+                  <View style={styles.circleFilled} />
+                  <Text style={styles.optionText}>
+                    {origemLead === "instagram" && "INSTAGRAM"}
+                    {origemLead === "google" && "GOOGLE"}
+                    {origemLead === "callix" && "CALLIX"}
+                    {origemLead === "parceiro" && (origemDetalhe ? `PARCEIRO: ${origemDetalhe}` : "PARCEIRO")}
+                    {origemLead === "indicacao" && (origemDetalhe ? `INDICAÇÃO: ${origemDetalhe}` : "INDICAÇÃO")}
+                    {origemLead === "outros" && (origemDetalhe ? `OUTROS: ${origemDetalhe}` : "OUTROS")}
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.optionRow, { flexWrap: 'wrap', gap: 10, marginTop: 4 }]}>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>INSTAGRAM</Text></View>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>GOOGLE</Text></View>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>CALLIX</Text></View>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>PARCEIRO__________</Text></View>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>INDICAÇÃO__________</Text></View>
+                  <View style={styles.optionRow}><View style={styles.circle} /><Text style={styles.optionText}>OUTROS______________</Text></View>
+                </View>
+              )}
             </View>
           </View>
           <View style={styles.row}>

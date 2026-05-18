@@ -69,7 +69,10 @@ export default function BlocoResultados({ dados, visual, userName }: Props) {
                 }
             }));
 
-            if (sucesso) await atualizarRadar(cnpjParaConsultar, resRadar);
+            if (sucesso) {
+                const saveResult = await atualizarRadar(cnpjParaConsultar, resRadar);
+                if (saveResult.error) console.error("Radar não salvo:", saveResult.error);
+            }
         } catch {
             setEtapas(prev => ({ ...prev, radar: { ...prev.radar, status: "error", dados: null } }));
         } finally {

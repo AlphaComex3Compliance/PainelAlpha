@@ -74,16 +74,19 @@ export default function SistemaPreAnaliseClient({ sessionUser, visual }: Props) 
 
         savedRef.current = true;
 
+        const shouldNavigate = etapas.rfb.status === "success" && etapas.empresaqui.status === "success";
+
         upsertConsulta({
             rfb: { dados: etapas.rfb.dados },
             empresaqui: { dados: etapas.empresaqui.dados },
             radar: { dados: etapas.radar.dados },
             extra: {}
-        }).catch(console.error);
-
-        if (etapas.rfb.status === "success" && etapas.empresaqui.status === "success") {
-            setFase("results");
-        }
+        }).then(() => {
+            if (shouldNavigate) setFase("results");
+        }).catch(err => {
+            console.error(err);
+            if (shouldNavigate) setFase("results");
+        });
     }, [etapas.rfb.status, etapas.empresaqui.status, fase]);
 
     const executarConsulta = async (cleanCnpj: string) => {

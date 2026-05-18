@@ -61,7 +61,10 @@ export async function atualizarRadar(cnpj: string, radarDados: any) {
             where: { cnpj: cnpjLimpo },
         });
 
-        if (!existing) return { error: "Consulta não encontrada no banco" };
+        if (!existing) {
+            console.error(`atualizarRadar: registro não encontrado para CNPJ ${cnpjLimpo}`);
+            return { error: "Consulta não encontrada no banco" };
+        }
 
         const dadosAtuais = (existing.dadosBrutos as any) || {};
         const novosDados = {
