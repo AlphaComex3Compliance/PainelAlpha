@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getUsers } from '@/actions/get-user';
 import { getModulos, getVideos } from '@/actions/GetVideos';
+import { getAllCursos } from '@/actions/Cursos';
 import SecaoUpload from './Upload';
 import ModalGerenciamento from './EdicaoOrdenacao';
 import ModalEditar from './ModalEditar';
 import ModalExcluir from './ModalExcluir';
 import ModalCurso from './CriarCurso';
+import ModalModulosDoCurso from './ModalModulosDoCurso';
 
 export default function GerenciadorAlphaSkills() {
     const router = useRouter();
@@ -20,6 +22,7 @@ export default function GerenciadorAlphaSkills() {
     const [loading, setLoading] = useState(true);
     const [videosList, setVideosList] = useState<any[]>([]);
     const [modulosList, setModulosList] = useState<any[]>([]);
+    const [cursosList, setCursosList] = useState<any[]>([]);
     const [loadingVideos, setLoadingVideos] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [videoSelecionado, setVideoSelecionado] = useState<any>(null);
@@ -29,13 +32,15 @@ export default function GerenciadorAlphaSkills() {
     const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
     const [videosOrdenados, setVideosOrdenados] = useState<any[]>([]);
     const [modalCursoOpen, setModalCursoOpen] = useState(false);
+    const [cursoSelecionadoId, setCursoSelecionadoId] = useState<string | null>(null);
 
 
     const carregarDados = async () => {
         setLoading(true);
-        const [vids, mods] = await Promise.all([getVideos(), getModulos()]);
+        const [vids, mods, cursos] = await Promise.all([getVideos(), getModulos(), getAllCursos()]);
         setVideosList(vids);
         setModulosList(mods);
+        setCursosList(cursos as any[]);
         setLoading(false);
     };
 
@@ -43,13 +48,25 @@ export default function GerenciadorAlphaSkills() {
 
 
     const filteredModulos = useMemo(() => {
-
         return modulosList.filter(m => {
             const matchesSetor = filtroSetor === "Todos" || m.setor.includes(filtroSetor);
             const matchesBusca = m.nome.toLowerCase().includes(searchTerm.toLowerCase());
             return matchesSetor && matchesBusca;
         });
     }, [modulosList, filtroSetor, searchTerm]);
+
+    const filteredCursos = useMemo(() => {
+        return cursosList.filter(c => {
+            const matchesSetor = filtroSetor === "Todos" || c.setores.includes(filtroSetor);
+            const matchesBusca = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
+            return matchesSetor && matchesBusca;
+        });
+    }, [cursosList, filtroSetor, searchTerm]);
+
+    const cursoSelecionado = useMemo(
+        () => cursosList.find(c => c.id === cursoSelecionadoId) ?? null,
+        [cursosList, cursoSelecionadoId]
+    );
 
     useEffect(() => {
         const carregarVideosDoModulo = async () => {
@@ -125,7 +142,7 @@ export default function GerenciadorAlphaSkills() {
                                     </h1>
                                 </div>
                                 <p className="text-[9px] font-bold text-slate-600 uppercase mt-1 tracking-widest">
-                                    {filteredModulos.length} Modulos sincronizados
+                                    {filteredCursos.length} Curso{filteredCursos.length !== 1 ? 's' : ''} sincronizados
                                 </p>
 
                             </div>
@@ -175,65 +192,77 @@ export default function GerenciadorAlphaSkills() {
                                     </div>
                                 ) : !moduloAtivo ? (
                                     <motion.div
-                                        key="grid-modulos"
+                                        key="grid-cursos"
                                         initial={{ opacity: 0, scale: 0.98 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.98 }}
                                         transition={{ duration: 0.4, ease: "circOut" }}
                                         className="grid grid-cols-1 md:grid-cols-2 gap-5"
                                     >
-                                        {filteredModulos.map((mod) => {
-                                            const aulasCount = videosList.filter(v =>
-                                                v.modulo && v.modulo.some((m: any) => m.id === mod.id)
-                                            ).length;
-                                            return (
-                                                <div
-                                                    key={mod.id}
-                                                    onClick={() => setModuloAtivo(mod)}
-                                                    className="group relative bg-gradient-to-br from-[#161616] to-[#121212] border border-white/5 rounded-[2.8rem] p-7 cursor-pointer hover:border-orange-500/50 transition-all duration-500 shadow-2xl overflow-hidden"
-                                                >
-                                                    <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-orange-600/5 blur-[50px] group-hover:bg-orange-600/15 transition-all duration-700" />
+                                        {filteredCursos.length === 0 && !loading && (
+                                            <div className="col-span-2 py-20 flex flex-col items-center justify-center bg-[#161616] rounded-[2.5rem] border border-white/5 border-dashed">
+                                                <BookOpen className="text-slate-800 mb-3" size={32} />
+                                                <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Nenhum curso encontrado</span>
+                                            </div>
+                                        )}
+                                        {filteredCursos.map((curso) => (
+                                            <div
+                                                key={curso.id}
+                                                onClick={() => setCursoSelecionadoId(curso.id)}
+                                                className="group relative bg-gradient-to-br from-[#161616] to-[#121212] border border-white/5 rounded-[2.8rem] p-7 cursor-pointer hover:border-orange-500/50 transition-all duration-500 shadow-2xl overflow-hidden"
+                                            >
+                                                <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-orange-600/5 blur-[50px] group-hover:bg-orange-600/15 transition-all duration-700" />
 
-                                                    <div className="flex flex-col gap-5 relative z-10">
-                                                        <div className="flex justify-between items-start">
-                                                            <div className="w-16 h-16 rounded-[1.4rem] bg-black border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group-hover:scale-105 group-hover:border-orange-500/30 transition-all duration-500">
-                                                                {mod.imagemUrl ? (
-                                                                    <img src={mod.imagemUrl} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100" />
-                                                                ) : (
-                                                                    <FolderKanban size={24} className="text-slate-700" />
-                                                                )}
-                                                            </div>
-                                                            <div className="bg-white/[0.03] p-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-                                                                <PlayCircle size={24} className="text-orange-500" />
-                                                            </div>
+                                                {curso.capa && (
+                                                    <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-all duration-700 overflow-hidden rounded-[2.8rem]">
+                                                        <img src={curso.capa} alt="" className="w-full h-full object-cover scale-110 blur-sm" />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex flex-col gap-5 relative z-10">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="relative w-16 h-16 rounded-[1.4rem] bg-black border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group-hover:scale-105 group-hover:border-orange-500/30 transition-all duration-500">
+                                                            {curso.capa ? (
+                                                                <img src={curso.capa} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100" />
+                                                            ) : (
+                                                                <BookOpen size={24} className="text-orange-500/50" />
+                                                            )}
                                                         </div>
-
-                                                        <div>
-                                                            <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-orange-500 transition-colors duration-300">
-                                                                {mod.nome}
-                                                            </h3>
-                                                            <p className="text-[10px] text-slate-500 font-medium mt-1 line-clamp-1 uppercase tracking-wider">
-                                                                {mod.aprendizado || "Módulo de capacitação Alpha"}
-                                                            </p>
+                                                        <div className="bg-white/[0.03] p-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                                                            <Settings size={20} className="text-orange-500" />
                                                         </div>
+                                                    </div>
 
-                                                        <div className="flex items-center justify-between pt-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[8px] font-black text-orange-500 uppercase bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
-                                                                    {mod.setor}
+                                                    <div>
+                                                        <h3 className="text-base font-black text-white uppercase tracking-tight group-hover:text-orange-500 transition-colors duration-300">
+                                                            {curso.nome}
+                                                        </h3>
+                                                        <p className="text-[10px] text-slate-500 font-medium mt-1 line-clamp-1 uppercase tracking-wider">
+                                                            {curso.descricao || "Curso Alpha Skills"}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between pt-2">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {curso.setores.slice(0, 2).map((s: string) => (
+                                                                <span key={s} className="text-[8px] font-black text-orange-500 uppercase bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                                                                    {s}
                                                                 </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <Film size={10} className="text-slate-600" />
-                                                                <span className="text-[9px] font-black text-slate-400 uppercase">
-                                                                    {aulasCount} {aulasCount === 1 ? 'Aula' : 'Aulas'}
-                                                                </span>
-                                                            </div>
+                                                            ))}
+                                                            {curso.setores.length > 2 && (
+                                                                <span className="text-[8px] font-black text-slate-500 uppercase bg-white/5 px-2 py-1 rounded-full">+{curso.setores.length - 2}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <FolderKanban size={10} className="text-slate-600" />
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase">
+                                                                {curso.modulos.length} {curso.modulos.length === 1 ? 'Módulo' : 'Módulos'}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                        ))}
                                     </motion.div>
                                 ) : (
                                     <motion.div
@@ -438,6 +467,14 @@ export default function GerenciadorAlphaSkills() {
             <ModalCurso
                 isOpen={modalCursoOpen}
                 onClose={() => setModalCursoOpen(false)}
+            />
+
+            <ModalModulosDoCurso
+                isOpen={!!cursoSelecionadoId}
+                onClose={() => setCursoSelecionadoId(null)}
+                curso={cursoSelecionado}
+                onVerAulas={(mod) => setModuloAtivo(mod)}
+                onSuccess={carregarDados}
             />
 
             <AnimatePresence>
