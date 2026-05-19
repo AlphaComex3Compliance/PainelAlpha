@@ -22,12 +22,13 @@ export default async function PainelLayout({
 
   
   return (
-    <BibbleProvider> 
       <div className="painel-wrapper">
         <Toaster richColors position="top-right" />
         {children}
-        {(session?.user as any)?.bibble_ativo !== false && <BibbleChat session={session}/>}
       </div>
-    </BibbleProvider>
   );
 }
+
+//para adicionar o bibble:
+//<BibbleProvider> 
+//{(session?.user as any)?.bibble_ativo !== false && <BibbleChat session={session}/>}
