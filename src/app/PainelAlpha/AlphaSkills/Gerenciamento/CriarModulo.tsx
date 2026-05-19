@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { X, Plus, FolderPlus, Edit3, Save, RotateCcw, Link as LinkIcon, Upload, Image as ImageIcon, AlignLeft, Loader2, ShieldCheck, Lock } from 'lucide-react';
+import { X, Plus, FolderPlus, Edit3, Save, RotateCcw, Link as LinkIcon, Upload, Image as ImageIcon, AlignLeft, Loader2, ShieldCheck, Lock, Layers, Trash2, CheckCircle2 } from 'lucide-react';
 import { createModulo, getModulos, updateModulo } from '@/actions/GetVideos';
 import { listarCursosParaSelect } from '@/actions/Cursos';
 import { upload } from '@vercel/blob/client';
@@ -27,8 +27,22 @@ interface ModuloItem {
     cursos?: { cursoId: string }[];
 }
 
+interface LoteModuloItem {
+    localId: string;
+    nome: string;
+    aprendizado: string;
+}
+
+let _loteModCounter = 0;
+function newLoteModuloItem(): LoteModuloItem {
+    return { localId: `lmod-${++_loteModCounter}`, nome: '', aprendizado: '' };
+}
+
 export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const router = useRouter();
+    const [modo, setModo] = useState<'single' | 'lote'>('single');
+
+    // ── Single mode ──
     const [nome, setNome] = useState("");
     const [descricao, setDescricao] = useState("");
     const [aprendizado, setAprendizado] = useState("");
@@ -44,6 +58,11 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onC
     const [logoLink, setLogoLink] = useState("");
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [editandoId, setEditandoId] = useState<string | null>(null);
+
+    // ── Lote mode ──
+    const [loteItems, setLoteItems] = useState<LoteModuloItem[]>([newLoteModuloItem()]);
+    const [loteCursosSelected, setLoteCursosSelected] = useState<string[]>([]);
+    const [loteProgress, setLoteProgress] = useState<{ current: number; total: number } | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -94,6 +113,48 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onC
         setCursosSelected(prev =>
             prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
         );
+    };
+
+    // ── Lote helpers ──
+    const updateLoteItem = (localId: string, patch: Partial<LoteModuloItem>) => {
+        setLoteItems(prev => prev.map(i => i.localId === localId ? { ...i, ...patch } : i));
+    };
+
+    const removeLoteItem = (localId: string) => {
+        setLoteItems(prev => prev.filter(i => i.localId !== localId));
+    };
+
+    const toggleLoteCurso = (id: string) => {
+        setLoteCursosSelected(prev =>
+            prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+        );
+    };
+
+    const handleLoteCreate = async () => {
+        const valid = loteItems.filter(i => i.nome.trim());
+        if (valid.length === 0) return toast.error("Preencha ao menos um nome de módulo.");
+        setLoteProgress({ current: 0, total: valid.length });
+        let criados = 0;
+        for (let i = 0; i < valid.length; i++) {
+            const item = valid[i];
+            try {
+                const res = await createModulo(item.nome.trim(), '', '', item.aprendizado.trim(), false, null, 100, loteCursosSelected);
+                if (res.success) criados++;
+                else toast.error(`"${item.nome}": ${(res as { error?: string }).error || 'Erro'}`);
+            } catch {
+                toast.error(`"${item.nome}": Erro ao criar`);
+            }
+            setLoteProgress({ current: i + 1, total: valid.length });
+        }
+        setLoteProgress(null);
+        if (criados > 0) {
+            toast.success(`${criados} módulo(s) criado(s)!`);
+            setLoteItems([newLoteModuloItem()]);
+            setLoteCursosSelected([]);
+            fetchModulos();
+            router.refresh();
+            onClose();
+        }
     };
 
     const handleAction = async () => {
@@ -164,10 +225,91 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onC
                             {editandoId ? "Editando Módulo" : "Gestão de Módulos"}
                         </h3>
                     </div>
-                    <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors cursor-pointer"><X /></button>
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-[#1C1C1C] p-1 rounded-xl border border-white/5">
+                            <button onClick={() => setModo('single')} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer ${modo === 'single' ? 'bg-orange-600 text-white' : 'text-slate-600 hover:text-white'}`}>Single</button>
+                            <button onClick={() => setModo('lote')} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${modo === 'lote' ? 'bg-orange-600 text-white' : 'text-slate-600 hover:text-white'}`}><Layers size={10} /> Lote</button>
+                        </div>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors cursor-pointer"><X /></button>
+                    </div>
                 </div>
 
                 <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar bg-[#0A0A0A]">
+                    {/* ── LOTE MODE ── */}
+                    {modo === 'lote' && (
+                        <div className="space-y-5">
+                            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                                {loteItems.map((item, idx) => (
+                                    <div key={item.localId} className="flex items-center gap-3 p-3 bg-[#111] border border-white/5 rounded-2xl">
+                                        <span className="text-[9px] font-black text-orange-500 w-6 text-center shrink-0">{String(idx + 1).padStart(2, '0')}</span>
+                                        <input
+                                            value={item.nome}
+                                            onChange={(e) => updateLoteItem(item.localId, { nome: e.target.value })}
+                                            placeholder="Nome do módulo *"
+                                            className="flex-1 bg-[#161616] border border-white/5 px-4 py-2.5 rounded-xl text-xs text-white outline-none focus:border-orange-500 transition-all font-bold"
+                                        />
+                                        <input
+                                            value={item.aprendizado}
+                                            onChange={(e) => updateLoteItem(item.localId, { aprendizado: e.target.value })}
+                                            placeholder="Subtítulo (opcional)"
+                                            className="flex-1 bg-[#161616] border border-white/5 px-4 py-2.5 rounded-xl text-xs text-slate-400 outline-none focus:border-orange-500 transition-all"
+                                        />
+                                        {loteItems.length > 1 && (
+                                            <button type="button" onClick={() => removeLoteItem(item.localId)} className="cursor-pointer text-slate-700 hover:text-red-400 transition-colors shrink-0">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setLoteItems(prev => [...prev, newLoteModuloItem()])}
+                                disabled={loteItems.length >= 20}
+                                className="cursor-pointer w-full py-3 rounded-2xl border-2 border-dashed border-orange-500/20 text-orange-400/60 hover:border-orange-500/40 hover:text-orange-400 transition-all text-[10px] font-black uppercase flex items-center justify-center gap-2 disabled:opacity-30"
+                            >
+                                <Plus size={12} /> Adicionar módulo
+                            </button>
+
+                            <div className="border-t border-white/5 pt-4 space-y-3">
+                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1 block">
+                                    Vincular todos a cursos {loteCursosSelected.length > 0 && <span className="text-orange-500">({loteCursosSelected.length})</span>}
+                                </label>
+                                {cursosDisponiveis.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {cursosDisponiveis.map(c => (
+                                            <button key={c.id} type="button" onClick={() => toggleLoteCurso(c.id)}
+                                                className={`py-2.5 px-4 rounded-xl text-[8px] font-black uppercase border transition-all cursor-pointer text-left ${loteCursosSelected.includes(c.id) ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[#161616] border-white/5 text-slate-600 hover:border-white/20'}`}>
+                                                {c.nome}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {loteProgress && (
+                                    <div className="px-4 py-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                        <p className="text-[9px] font-black text-orange-400 uppercase text-center">Criando {loteProgress.current} de {loteProgress.total}...</p>
+                                        <div className="mt-2 bg-orange-500/20 rounded-full h-1">
+                                            <div className="bg-orange-500 h-1 rounded-full transition-all duration-300" style={{ width: `${(loteProgress.current / loteProgress.total) * 100}%` }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleLoteCreate}
+                                    disabled={!!loteProgress || loteItems.filter(i => i.nome.trim()).length === 0}
+                                    className="cursor-pointer w-full py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                >
+                                    {loteProgress ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                                    {loteProgress ? `Criando ${loteProgress.current}/${loteProgress.total}...` : `Criar ${loteItems.filter(i => i.nome.trim()).length || loteItems.length} módulo(s)`}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── SINGLE MODE ── */}
+                    {modo === 'single' && (
                     <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${editandoId ? 'bg-blue-500/5 border-blue-500/20' : 'bg-[#111] border-white/5'}`}>
                         <div className="space-y-5">
                             <input
@@ -311,6 +453,7 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onC
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Module list */}
                     <div className="space-y-4">

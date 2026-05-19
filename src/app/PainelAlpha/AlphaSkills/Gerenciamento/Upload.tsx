@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Image as ImageIcon, CheckCircle2, Loader2, Plus, Film, X, FolderPlus, FolderKanban, AlignLeft, Trash2, Layers } from 'lucide-react';
+import { Upload, Image as ImageIcon, CheckCircle2, Loader2, Plus, Film, X, FolderPlus, FolderKanban, AlignLeft, Trash2, Layers, BookOpen } from 'lucide-react';
 import { createVideo, getModulos } from '@/actions/GetVideos';
 import { uploadVideosLote } from '@/actions/UploadVideosLote';
 import { toast } from 'sonner';
 import { upload } from '@vercel/blob/client';
 import ModalModulos from './CriarModulo';
+import ModalCurso from './CriarCurso';
 import { useRouter } from 'next/navigation';
 
 interface ModuloItem {
@@ -61,6 +62,7 @@ export default function SecaoUpload({ onSuccess }: { onSuccess: () => void }) {
     // ── Shared ──
     const [modulosDisponiveis, setModulosDisponiveis] = useState<ModuloItem[]>([]);
     const [modalModuloOpen, setModalModuloOpen] = useState(false);
+    const [modalCursoOpen, setModalCursoOpen] = useState(false);
 
     const fetchModulos = async () => {
         const data = await getModulos();
@@ -223,14 +225,22 @@ export default function SecaoUpload({ onSuccess }: { onSuccess: () => void }) {
                             <h2 className="text-sm font-black uppercase tracking-widest text-white">Upload de Mídia</h2>
                             <p className="text-[9px] text-slate-500 uppercase mt-1">Vincular aula a módulos</p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setModalModuloOpen(true)}
                                 className="p-2.5 bg-blue-500/10 rounded-xl text-blue-500 hover:bg-blue-500 hover:text-white transition-all cursor-pointer flex items-center gap-2"
-                                title="Criar Novo Módulo"
+                                title="Criar Módulo"
                             >
                                 <FolderPlus size={18} />
                                 <span className="text-[8px] font-black uppercase pr-1 hidden sm:block">Módulos</span>
+                            </button>
+                            <button
+                                onClick={() => setModalCursoOpen(true)}
+                                className="p-2.5 bg-orange-500/10 rounded-xl text-orange-500 hover:bg-orange-500 hover:text-white transition-all cursor-pointer flex items-center gap-2 border border-orange-500/20"
+                                title="Criar Curso"
+                            >
+                                <BookOpen size={18} />
+                                <span className="text-[8px] font-black uppercase pr-1 hidden sm:block">Cursos</span>
                             </button>
                             <div className="p-2.5 bg-orange-500/10 rounded-xl text-orange-500 border border-orange-500/10">
                                 <Film size={18} />
@@ -438,6 +448,7 @@ export default function SecaoUpload({ onSuccess }: { onSuccess: () => void }) {
             </div>
 
             <ModalModulos isOpen={modalModuloOpen} onClose={() => setModalModuloOpen(false)} />
+            <ModalCurso isOpen={modalCursoOpen} onClose={() => setModalCursoOpen(false)} />
         </>
     );
 }
