@@ -1,66 +1,79 @@
 import { auth } from "../../../../auth";
-import { getModulos, getVideos, getUserProgresso } from "@/actions/GetVideos";
+import { getVideos, getUserProgresso } from "@/actions/GetVideos";
+import { getAllCursos } from "@/actions/Cursos";
 import AlphaSkillsClient from "./AlphaSkillsClient";
 
 export default async function AlphaSkillsPage() {
-  const session = await auth();
-  const userId = session?.user?.id || "";
+    const session = await auth();
+    const userId = session?.user?.id || "";
 
-  const [mods, vids, progressRaw] = await Promise.all([
-    getModulos(),
-    getVideos(),
-    getUserProgresso(userId)
-  ]);
+    const [cursos, vids, progressRaw] = await Promise.all([
+        getAllCursos(),
+        getVideos(),
+        getUserProgresso(userId)
+    ]);
 
-  const progress = (progressRaw || []).map((p: any) => ({
-    aulaId: String(p.aulaId),
-    concluido: Boolean(p.concluido)
-  }));
+    const progress = (progressRaw || []).map((p: any) => ({
+        aulaId: String(p.aulaId),
+        concluido: Boolean(p.concluido)
+    }));
 
-  const todosModulosOrdenados = [...mods].sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0));
-
-  const modulosProcessados = mods.map(mod => {
-    if (!mod.bloqueado) {
-      return { ...mod, isLiberado: true };
-    }
-
-    let idRequisito = mod.requerModuloId;
-
-    if (!idRequisito) {
-      const idxGlobal = todosModulosOrdenados.findIndex((m: any) => m.id === mod.id);
-      if (idxGlobal > 0) {
-        idRequisito = todosModulosOrdenados[idxGlobal - 1].id;
-      }
-    }
-
-    if (!idRequisito) {
-      return { ...mod, isLiberado: true };
-    }
-
-    const aulasRequisito = vids.filter((v: any) =>
-      v.modulo?.some((m: any) => String(m.id) === String(idRequisito))
+    // Collect all unique modules across all courses
+    const allModulosMap = new Map<string, any>();
+    cursos.forEach(c =>
+        c.modulos.forEach(m => {
+            if (!allModulosMap.has(m.id)) allModulosMap.set(m.id, m);
+        })
     );
+    const allModulos = Array.from(allModulosMap.values());
+    const allModulosOrdenados = [...allModulos].sort((a, b) => (a.ordemNoCurso || 0) - (b.ordemNoCurso || 0));
 
-    const concluidas = progress.filter((p: any) =>
-      aulasRequisito.some((a: any) => String(a.id) === String(p.aulaId)) && p.concluido
+    // Process isLiberado globally
+    const modulosProcessadosMap = new Map<string, any>();
+    allModulos.forEach(mod => {
+        if (!mod.bloqueado) {
+            modulosProcessadosMap.set(mod.id, { ...mod, isLiberado: true });
+            return;
+        }
+
+        let idRequisito = mod.requerModuloId;
+        if (!idRequisito) {
+            const idx = allModulosOrdenados.findIndex(m => m.id === mod.id);
+            if (idx > 0) idRequisito = allModulosOrdenados[idx - 1].id;
+        }
+
+        if (!idRequisito) {
+            modulosProcessadosMap.set(mod.id, { ...mod, isLiberado: true });
+            return;
+        }
+
+        const aulasRequisito = vids.filter((v: any) =>
+            v.modulo?.some((m: any) => String(m.id) === String(idRequisito))
+        );
+        const concluidas = progress.filter(p =>
+            aulasRequisito.some((a: any) => String(a.id) === String(p.aulaId)) && p.concluido
+        );
+        const pct = aulasRequisito.length > 0 ? (concluidas.length / aulasRequisito.length) * 100 : 0;
+        const meta = mod.percentualMinimo || 100;
+
+        modulosProcessadosMap.set(mod.id, {
+            ...mod,
+            isLiberado: pct >= meta,
+            nomeAnterior: allModulos.find(m => String(m.id) === String(idRequisito))?.nome
+        });
+    });
+
+    // Rebuild courses with processed modules
+    const cursosProcessados = cursos.map(curso => ({
+        ...curso,
+        modulos: curso.modulos.map(m => modulosProcessadosMap.get(m.id) || { ...m, isLiberado: true })
+    }));
+
+    return (
+        <AlphaSkillsClient
+            session={session}
+            initialCursos={cursosProcessados}
+            initialVideos={vids}
+        />
     );
-
-    const pct = aulasRequisito.length > 0 ? (concluidas.length / aulasRequisito.length) * 100 : 0;
-    const meta = mod.percentualMinimo || 100;
-
-    return {
-      ...mod,
-      isLiberado: pct >= meta,
-      nomeAnterior: mods.find((m: any) => String(m.id) === String(idRequisito))?.nome
-    };
-  });
-
-  return (
-    <AlphaSkillsClient 
-      session={session} 
-      initialModulos={modulosProcessados} 
-      initialVideos={vids}
-      initialProgresso={progress}
-    />
-  );
 }

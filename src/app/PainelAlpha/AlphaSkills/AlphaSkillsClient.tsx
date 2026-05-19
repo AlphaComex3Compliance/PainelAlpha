@@ -3,76 +3,91 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import BotaoVoltar from '@/components/BotaoVoltarMinimalista';
 import TrilhaCarrossel from './TrilhaCarrossel';
 import ModuloModal from './ModuloModal';
 
-export default function AlphaSkillsClient({ session, initialModulos, initialVideos, initialProgresso }: any) {
+interface Modulo {
+    id: string;
+    nome: string;
+    imagemUrl: string;
+    descricao?: string;
+    aprendizado?: string;
+    bloqueado: boolean;
+    requerModuloId?: string | null;
+    percentualMinimo?: number;
+    isLiberado: boolean;
+    nomeAnterior?: string;
+    ordemNoCurso?: number;
+    setor?: string;
+}
+
+interface Curso {
+    id: string;
+    nome: string;
+    descricao?: string | null;
+    capa?: string | null;
+    ordem: number;
+    setores: string[];
+    modulos: Modulo[];
+}
+
+interface Props {
+    session: {
+        user?: {
+            id?: string;
+            role?: string;
+            name?: string;
+        };
+    } | null;
+    initialCursos: Curso[];
+    initialVideos: {
+        id: string;
+        titulo: string;
+        url: string;
+        thumbUrl?: string | null;
+        modulo?: { id: string; nome: string }[];
+    }[];
+}
+
+export default function AlphaSkillsClient({ session, initialCursos, initialVideos }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedModulo, setSelectedModulo] = useState<any>(null);
+    const [selectedModulo, setSelectedModulo] = useState<Modulo | null>(null);
+    const [setorFiltro, setSetorFiltro] = useState("Todos");
 
-    const isAdmin = session?.user?.role === "Admin";
+    const isAdmin = session?.user?.role === "Admin" || session?.user?.role === "Master";
 
-    const setores = useMemo(() => {
-        const grupos = initialModulos.reduce((acc: any, m: any) => {
-            const s = m.setor || "Geral";
-            if (!acc[s]) acc[s] = [];
-            acc[s].push(m);
-            return acc;
-        }, {});
+    const setoresDisponiveis = useMemo(() => {
+        const set = new Set<string>();
+        initialCursos.forEach(c => c.setores.forEach(s => set.add(s)));
+        return Array.from(set).sort();
+    }, [initialCursos]);
 
-        return Object.keys(grupos).sort().map(nomeSetor => {
-            const itemsOrdenados = grupos[nomeSetor].sort((a: any, b: any) => {
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            });
+    const cursosFiltrados = useMemo(() => {
+        let filtered = initialCursos;
 
-            const itemsProcessados = itemsOrdenados.map((mod: any, index: number) => {
-                const tituloFormatado = `Módulo ${index + 1}: `;
+        if (setorFiltro !== "Todos") {
+            filtered = filtered.filter(c => c.setores.includes(setorFiltro));
+        }
 
-                if (isAdmin) {
-                    return { ...mod, nomeExibicao: tituloFormatado, isLiberado: true };
-                }
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase();
+            filtered = filtered.filter(c =>
+                c.nome.toLowerCase().includes(q) ||
+                c.modulos.some(m => m.nome.toLowerCase().includes(q))
+            );
+        }
 
-                if (!mod.bloqueado || index === 0) {
-                    return { ...mod, nomeExibicao: tituloFormatado, isLiberado: true };
-                }
-
-                const moduloAnterior = itemsOrdenados[index - 1];
-                const idRequisito = mod.requerModuloId || moduloAnterior.id;
-
-                const aulasDoRequisito = (initialVideos || []).filter((v: any) =>
-                    v.modulo?.some((m: any) => String(m.id) === String(idRequisito))
-                );
-
-                if (aulasDoRequisito.length === 0) {
-                    return { ...mod, nomeExibicao: tituloFormatado, isLiberado: true };
-                }
-
-                const concluidas = (initialProgresso || []).filter((p: any) =>
-                    aulasDoRequisito.some((a: any) => String(a.id) === String(p.aulaId)) && p.concluido
-                );
-
-                const pct = (concluidas.length / aulasDoRequisito.length) * 100;
-                const isLiberado = pct >= (mod.percentualMinimo || 100);
-
-                return {
-                    ...mod,
-                    nomeExibicao: tituloFormatado, 
-                    isLiberado,
-                    nomeAnterior: moduloAnterior.nome
-                };
-            });
-
-            return { nome: nomeSetor, items: itemsProcessados };
-        }).filter(s => s.items.length > 0);
-
-    }, [initialModulos, initialVideos, initialProgresso, searchTerm]);
-
-    // Se o módulo anterior não tem aulas, libera para não travar o fluxo
-    //if (aulasDoRequisito.length === 0) {
-    //     return { ...mod, isLiberado: true };
-    // }
+        return filtered.map(curso => ({
+            ...curso,
+            modulos: curso.modulos.map((mod, i) => ({
+                ...mod,
+                nomeExibicao: `Módulo ${i + 1}: `
+            }))
+        }));
+    }, [initialCursos, setorFiltro, searchTerm]);
 
     return (
         <div className="min-h-screen bg-[#050505] text-white selection:bg-orange-500/30 overflow-x-hidden">
@@ -83,40 +98,35 @@ export default function AlphaSkillsClient({ session, initialModulos, initialVide
 
             <div className="fixed inset-0 flex items-center justify-center z-0 pointer-events-none overflow-hidden">
                 <div className="absolute w-[800px] h-[800px] bg-orange-600/5 rounded-full blur-[120px]" />
-
-                <motion.img
+                <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 0.10, scale: 1 }}
                     transition={{ duration: 2, ease: "easeOut" }}
-                    src="/Logotipo-1.png"
-                    className="w-[90%] max-w-[800px] object-contain filter brightness-200"
-                    alt="Alpha Logo Background"
-                />
+                    className="w-[90%] max-w-[800px]"
+                >
+                    <Image
+                        src="/Logotipo-1.png"
+                        width={800}
+                        height={800}
+                        className="object-contain filter brightness-200"
+                        alt="Alpha Logo Background"
+                    />
+                </motion.div>
             </div>
 
             <section className="relative h-[50vh] md:h-[65vh] flex items-center px-6 md:px-16 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/80 to-transparent z-10" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent z-10" />
                 <div className="absolute inset-0 opacity-30">
-                    <img
+                    <Image
                         src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070"
-                        className="w-full h-full object-cover scale-110 blur-sm"
+                        fill
+                        className="object-cover scale-110 blur-sm"
                         alt="Background"
+                        unoptimized
                     />
                 </div>
 
-                <div className="fixed inset-0 flex items-center justify-center z-0 pointer-events-none overflow-hidden">
-                    <div className="absolute w-[800px] h-[800px] bg-orange-600/5 rounded-full blur-[120px]" />
-                    <motion.img
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 0.10, scale: 1 }}
-                        src="/Logotipo-1.png"
-                        className="w-[90%] max-w-[800px] object-contain filter brightness-200"
-                    />
-                </div>
-
-                <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/80 to-transparent z-10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent z-10" />
                 <div className="relative z-20 max-w-3xl">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <h1 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-[0.85] mb-6 italic">
@@ -145,14 +155,63 @@ export default function AlphaSkillsClient({ session, initialModulos, initialVide
                 </div>
             </section>
 
-            <div className="px-6 md:px-16 -mt-10 md:-mt-20 pb-20 relative z-30 space-y-12 md:space-y-20">
-                {setores.map((setor) => (
-                    <TrilhaCarrossel
-                        key={setor.nome}
-                        setor={setor}
-                        onSelectModulo={setSelectedModulo}
-                    />
-                ))}
+            {setoresDisponiveis.length > 0 && (
+                <div className="px-6 md:px-16 mt-6 relative z-30">
+                    <div className="inline-flex bg-[#1C1C1C] p-1.5 rounded-[1.5rem] border border-white/10 gap-1 flex-wrap">
+                        <button
+                            onClick={() => setSetorFiltro("Todos")}
+                            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                                setorFiltro === "Todos"
+                                    ? "bg-orange-500 text-white"
+                                    : "text-slate-400 hover:text-white"
+                            }`}
+                        >
+                            Todos
+                        </button>
+                        {setoresDisponiveis.map(s => (
+                            <button
+                                key={s}
+                                onClick={() => setSetorFiltro(s)}
+                                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                                    setorFiltro === s
+                                        ? "bg-orange-500 text-white"
+                                        : "text-slate-400 hover:text-white"
+                                }`}
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="px-6 md:px-16 mt-8 pb-20 relative z-30 space-y-12 md:space-y-20">
+                <AnimatePresence mode="wait">
+                    {cursosFiltrados.map((curso, idx) => (
+                        <motion.div
+                            key={curso.id}
+                            initial={{ opacity: 0, y: 24 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.3, delay: idx * 0.05 }}
+                        >
+                            <TrilhaCarrossel
+                                setor={{ nome: curso.nome, items: curso.modulos }}
+                                onSelectModulo={setSelectedModulo}
+                            />
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+
+                {cursosFiltrados.length === 0 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center text-slate-500 py-20"
+                    >
+                        Nenhum curso encontrado.
+                    </motion.div>
+                )}
             </div>
 
             <AnimatePresence>

@@ -25,7 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { BotaoVoltar } from "@/components/BotaoVoltar";
 
 const MODULOS_BASE = [
-  { id: "radar", title: "Radar", img: "/bar-chart_1573395.png", tag: "Logística" },
+  { id: "radar", title: "Radar", img: "/cargueiro.png", tag: "Logística" },
   { id: "chamados", title: "Chamados", img: "/discussion_655664.png", tag: "Suporte" },
   { id: "cadastro", title: "Gestão", img: "/people_10893485.png", tag: "Admin" },
   { id: "Reservas", title: "Salas", img: "/icons8-sala-de-reuniões-64.png", tag: "Facilities" },
@@ -35,7 +35,6 @@ const MODULOS_BASE = [
   { id: "Perse", title: "Alpha Connect", img: "/planejamento-tributario.png", tag: "Connect" },
   { id: "Extratos", title: "Sistema de Extratos Bancarios", img: "/taxa.png", tag: "Financeiro" },
   { id: "ServiçosGerais", title: "Serviços Gerais", img: "/cleaning.png", tag: "Serviços Gerais" },
-  { id: "NovoRadar", title: "Consulta RADAR", img: "/cargueiro.png", tag: "RADAR" },
   { id: "analise", title: "Sistema Pre Analise", img: "/document.png", tag: "Gerador de ficha de reunião" },
   { id: "skills", title: "Alpha Skills", img: "/elearning.png", tag: "Alpha Skills" },
   { id: "schools", title: "Alpha Schools", img: "/textbook.png", tag: "Alpha Schools" },

@@ -4,11 +4,15 @@ import { revalidatePath } from "next/cache";
 
 export async function verificarCNPJDuplicado(cnpj: string): Promise<{ existe: boolean; razaoSocial?: string }> {
   const cnpjLimpo = cnpj.replace(/\D/g, "");
-  const cliente = await db.clientes.findFirst({
-    where: { cnpj: cnpjLimpo },
-    select: { razaoSocial: true },
-  });
-  return { existe: !!cliente, razaoSocial: cliente?.razaoSocial };
+  try {
+    const cliente = await db.clientes.findFirst({
+      where: { cnpj: cnpjLimpo },
+      select: { razaoSocial: true },
+    });
+    return { existe: !!cliente, razaoSocial: cliente?.razaoSocial };
+  } catch {
+    return { existe: false };
+  }
 }
 
 export async function CadastrarCliente(dados: any, socios: any[]) {

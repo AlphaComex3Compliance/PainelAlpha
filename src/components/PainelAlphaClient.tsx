@@ -78,7 +78,7 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
     }, [mounted, chamadosIniciais, session?.user?.id]);
 
     const modulos = [
-        { id: "radar", title: "Consulta RADAR", desc: "Consultas unitárias ou em lote via API com exportação Excel.", img: "../bar-chart_1573395.png", link: "/PainelAlpha/HabilitacaoRadar", color: "from-blue-600/20", tag: "RADAR" },
+        { id: "radar", title: "Consulta RADAR", desc: "Consultas unitárias ou em lote via API com exportação Excel.", img: "../cargueiro.png", link: "/PainelAlpha/HabilitacaoRadar", color: "from-blue-600/20", tag: "RADAR" },
         { id: "chamados", title: "Chamados Internos", desc: "Suporte técnico e registro de incidentes para o time de TI.", img: "../discussion_655664.png", link: "/PainelAlpha/Chamados", color: "from-amber-600/20", tag: "Suporte" },
         { id: "cadastro", title: "Gestão de Equipe", desc: "Gerenciamento de contas, permissões e status de usuários.", img: "../people_10893485.png", link: "/PainelAlpha/cadastro", color: "from-purple-600/20", tag: "Admin" },
         { id: "Reservas", title: "Reserva de Salas", desc: "Agendamento de salas com controle de data e horários.", img: "../icons8-sala-de-reuniões-64.png", link: "/PainelAlpha/ReservaSalas", color: "from-emerald-600/20", tag: "utilidades" },
@@ -88,7 +88,6 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
         { id: "Perse", title: "Analise Fiscal", desc: "Sistema de analise previa para Oportunidades tributarias", img: "../planejamento-tributario.png", link: "/PainelAlpha/AlphaConnect", color: "from-green-600/20", tag: "tributario" },
         { id: "Extratos", title: "ANÁLISE DE EXTRATOS BANCÁRIOS", desc: "ANÁLISE DE EXTRATOS BANCÁRIOS", img: "../taxa.png", link: "/PainelAlpha/ExtratosBancarios", color: "from-black-600/20", tag: "Financeiro" },
         { id: "ServiçosGerais", title: "Serviços Gerais", desc: "Bancada de Tarefas Diarias", img: "../cleaning.png", link: "/PainelAlpha/PainelTarefas/painelTarefaSG", color: "from-pink-600/20", tag: "Serviços Gerais" },
-        { id: "NovoRadar", title: "Consulta RADAR", desc: "Novo painel de consulta RADAR", img: "../cargueiro.png", link: "/PainelAlpha/NovoPainelHabilitacao", color: "from-yellow-600/20", tag: "RADAR" },
         { id: "analise", title: "Sistema de pré análise", desc: "Sistema de pré análise e gerador de ficha de reunião", img: "../document.png", link: "/PainelAlpha/SistemaPreAnalise", color: "from-purple-600/20", tag: "Gerador de ficha de reuniao" },
         { id: "skills", title: "Alpha Skills", desc: "Alpha Skills", img: "../elearning.png", link: "/PainelAlpha/AlphaSkills", color: "from-green-600/20", tag: "Alpha Skills" },
         { id: "schools", title: "Alpha Schools", desc: "Alpha Schools", img: "../textbook.png", link: "/PainelAlpha/AlphaSchools", color: "from-orange-600/20", tag: "Alpha Schools" },

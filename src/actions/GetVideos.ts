@@ -154,13 +154,46 @@ export async function updateVideoData(id: string, data: any) {
     }
 }
 
-export async function createModulo(nome: string, setor: string, imagemUrl: string, descricao: string, aprendizado: string, bloqueado: boolean, requerModuloId: string | null = null, percentualMinimo: number = 100) {
+export async function createModulo(
+    nome: string,
+    imagemUrl: string,
+    descricao: string,
+    aprendizado: string,
+    bloqueado: boolean,
+    requerModuloId: string | null = null,
+    percentualMinimo: number = 100,
+    cursosIds: string[] = []
+) {
     try {
-        await db.modulos.create({
-            data: { nome, setor, imagemUrl, descricao, aprendizado, bloqueado, percentualMinimo, requerModuloId }
-        });
+        let setor = 'Geral'
+        if (cursosIds.length > 0) {
+            const cursos = await db.curso.findMany({
+                where: { id: { in: cursosIds } },
+                include: { setores: true }
+            })
+            const setoresUnicos = [...new Set(cursos.flatMap(c => c.setores.map(s => s.setor)))]
+            if (setoresUnicos.length > 0) setor = setoresUnicos.join(', ')
+        }
+
+        const modulo = await db.modulos.create({
+            data: {
+                nome,
+                setor,
+                imagemUrl,
+                descricao,
+                aprendizado,
+                bloqueado,
+                percentualMinimo,
+                requerModuloId,
+                ...(cursosIds.length > 0 && {
+                    cursos: {
+                        create: cursosIds.map((cursoId, i) => ({ cursoId, ordem: i }))
+                    }
+                })
+            }
+        })
         revalidatePath("/PainelAlpha/AlphaSkills/Gerenciamento");
-        return { success: true };
+        return { success: true, id: modulo.id };
     } catch (error) {
         return { success: false };
     }
@@ -169,7 +202,12 @@ export async function createModulo(nome: string, setor: string, imagemUrl: strin
 export async function getModulos() {
     try {
         return await db.modulos.findMany({
-            orderBy: { nome: 'asc' }
+            orderBy: { nome: 'asc' },
+            include: {
+                cursos: {
+                    select: { cursoId: true }
+                }
+            }
         });
     } catch (error) {
         console.error("Erro ao buscar módulos:", error);
@@ -177,12 +215,48 @@ export async function getModulos() {
     }
 }
 
-export async function updateModulo(id: string, nome: string, setor: string, imagemUrl: string, descricao?: string, aprendizado?: string, bloqueado?: boolean, requerModuloId: string | null = null, percentualMinimo: number = 100) {
+export async function updateModulo(
+    id: string,
+    nome: string,
+    imagemUrl: string,
+    descricao?: string,
+    aprendizado?: string,
+    bloqueado?: boolean,
+    requerModuloId: string | null = null,
+    percentualMinimo: number = 100,
+    cursosIds: string[] = []
+) {
     try {
+        let setor = 'Geral'
+        if (cursosIds.length > 0) {
+            const cursos = await db.curso.findMany({
+                where: { id: { in: cursosIds } },
+                include: { setores: true }
+            })
+            const setoresUnicos = [...new Set(cursos.flatMap(c => c.setores.map(s => s.setor)))]
+            if (setoresUnicos.length > 0) setor = setoresUnicos.join(', ')
+        }
+
+        await db.cursoModulo.deleteMany({ where: { moduloId: id } })
+
         await db.modulos.update({
             where: { id },
-            data: { nome, setor, imagemUrl, descricao, aprendizado, bloqueado, requerModuloId, percentualMinimo }
-        });
+            data: {
+                nome,
+                setor,
+                imagemUrl,
+                descricao,
+                aprendizado,
+                bloqueado,
+                requerModuloId,
+                percentualMinimo,
+                ...(cursosIds.length > 0 && {
+                    cursos: {
+                        create: cursosIds.map((cursoId, i) => ({ cursoId, ordem: i }))
+                    }
+                })
+            }
+        })
         revalidatePath("/PainelAlpha/AlphaSkills/Gerenciamento");
         return { success: true };
     } catch (error) {

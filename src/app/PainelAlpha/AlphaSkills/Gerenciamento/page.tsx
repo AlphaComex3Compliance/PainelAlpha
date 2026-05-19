@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, MoveVertical, Edit3, Trash2, Upload, Film, Image as ImageIcon, CheckCircle2, Activity, Search, ChevronLeft, ChevronRight, Settings, FolderKanban, PlayCircle, X } from 'lucide-react';
+import { ArrowLeft, MoveVertical, Edit3, Trash2, Upload, Film, Image as ImageIcon, CheckCircle2, Activity, Search, ChevronLeft, ChevronRight, Settings, FolderKanban, PlayCircle, X, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getUsers } from '@/actions/get-user';
@@ -10,6 +10,7 @@ import SecaoUpload from './Upload';
 import ModalGerenciamento from './EdicaoOrdenacao';
 import ModalEditar from './ModalEditar';
 import ModalExcluir from './ModalExcluir';
+import ModalCurso from './CriarCurso';
 
 export default function GerenciadorAlphaSkills() {
     const router = useRouter();
@@ -27,6 +28,7 @@ export default function GerenciadorAlphaSkills() {
     const [moduloAtivo, setModuloAtivo] = useState<any>(null);
     const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
     const [videosOrdenados, setVideosOrdenados] = useState<any[]>([]);
+    const [modalCursoOpen, setModalCursoOpen] = useState(false);
 
 
     const carregarDados = async () => {
@@ -130,8 +132,14 @@ export default function GerenciadorAlphaSkills() {
 
                         </div>
 
-                        {/* Navegação de Setores */}
-                        <div className="w-full lg:w-auto">
+                        {/* Navegação de Setores + Criar Curso */}
+                        <div className="w-full lg:w-auto flex flex-col gap-3">
+                            <button
+                                onClick={() => setModalCursoOpen(true)}
+                                className="cursor-pointer self-end flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-900/20"
+                            >
+                                <BookOpen size={14} /> Criar Curso
+                            </button>
                             <div className="flex bg-[#1C1C1C] p-1.5 rounded-[1.5rem] border border-white/5 overflow-x-auto no-scrollbar gap-1.5 shadow-inner">
                                 {["Todos", "T.I", "Comercial", "Operacional", "Financeiro", "Recursos-Humanos", "Serviços Gerais"].map((setor) => (
                                     <button
@@ -425,6 +433,11 @@ export default function GerenciadorAlphaSkills() {
                 onClose={() => setModalDeleteOpen(false)}
                 video={videoSelecionado}
                 onSuccess={carregarDados}
+            />
+
+            <ModalCurso
+                isOpen={modalCursoOpen}
+                onClose={() => setModalCursoOpen(false)}
             />
 
             <AnimatePresence>

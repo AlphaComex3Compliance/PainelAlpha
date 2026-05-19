@@ -3,13 +3,31 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, FolderPlus, Edit3, Save, RotateCcw, Link as LinkIcon, Upload, Image as ImageIcon, AlignLeft, Loader2, ShieldCheck, Lock } from 'lucide-react';
 import { createModulo, getModulos, updateModulo } from '@/actions/GetVideos';
+import { listarCursosParaSelect } from '@/actions/Cursos';
 import { upload } from '@vercel/blob/client';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
-const SETORES = ["T.I", "Comercial", "Operacional", "Financeiro", "Recursos-Humanos", "Serviços Gerais"];
+interface CursoOption {
+    id: string;
+    nome: string;
+}
 
-export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+interface ModuloItem {
+    id: string;
+    nome: string;
+    setor: string;
+    imagemUrl: string;
+    descricao?: string;
+    aprendizado?: string;
+    bloqueado: boolean;
+    requerModuloId?: string | null;
+    percentualMinimo?: number;
+    cursos?: { cursoId: string }[];
+}
+
+export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const router = useRouter();
     const [nome, setNome] = useState("");
     const [descricao, setDescricao] = useState("");
@@ -17,8 +35,9 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
     const [bloqueado, setBloqueado] = useState(false);
     const [requerModuloId, setRequerModuloId] = useState("");
     const [percentualMinimo, setPercentualMinimo] = useState(100);
-    const [setoresSelected, setSetoresSelected] = useState<string[]>([]);
-    const [modulos, setModulos] = useState<any[]>([]);
+    const [cursosSelected, setCursosSelected] = useState<string[]>([]);
+    const [modulos, setModulos] = useState<ModuloItem[]>([]);
+    const [cursosDisponiveis, setCursosDisponiveis] = useState<CursoOption[]>([]);
     const [loading, setLoading] = useState(false);
 
     const [modoUpload, setModoUpload] = useState(true);
@@ -27,13 +46,21 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
     const [editandoId, setEditandoId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen) fetchModulos();
+        if (isOpen) {
+            fetchModulos();
+            fetchCursos();
+        }
     }, [isOpen]);
 
     const fetchModulos = async () => {
         const data = await getModulos();
-        setModulos(data);
+        setModulos(data as ModuloItem[]);
         router.refresh();
+    };
+
+    const fetchCursos = async () => {
+        const data = await listarCursosParaSelect();
+        setCursosDisponiveis(data as CursoOption[]);
     };
 
     const cancelarEdicao = () => {
@@ -44,13 +71,13 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
         setBloqueado(false);
         setRequerModuloId("");
         setPercentualMinimo(100);
-        setSetoresSelected([]);
+        setCursosSelected([]);
         setLogoFile(null);
         setLogoLink("");
         fetchModulos();
     };
 
-    const carregarParaEdicao = (m: any) => {
+    const carregarParaEdicao = (m: ModuloItem) => {
         setEditandoId(m.id);
         setNome(m.nome);
         setAprendizado(m.aprendizado || "");
@@ -58,13 +85,19 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
         setBloqueado(m.bloqueado || false);
         setRequerModuloId(m.requerModuloId || "");
         setPercentualMinimo(m.percentualMinimo || 100);
-        setSetoresSelected(m.setor ? m.setor.split(", ") : []);
+        setCursosSelected(m.cursos?.map(c => c.cursoId) || []);
         setLogoLink(m.imagemUrl || "");
         setModoUpload(false);
     };
 
+    const toggleCurso = (id: string) => {
+        setCursosSelected(prev =>
+            prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+        );
+    };
+
     const handleAction = async () => {
-        if (!nome || setoresSelected.length === 0) return toast.error("Preencha os campos obrigatórios!");
+        if (!nome) return toast.error("Preencha o nome do módulo!");
 
         setLoading(true);
         try {
@@ -78,31 +111,29 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                 finalImageUrl = blob.url;
             }
 
-            const setorString = setoresSelected.join(", ");
             let res;
-
             if (editandoId) {
                 res = await updateModulo(
                     editandoId,
                     nome,
-                    setorString,
                     finalImageUrl,
                     descricao,
                     aprendizado,
                     bloqueado,
-                    requerModuloId,
-                    Number(percentualMinimo)
+                    requerModuloId || null,
+                    Number(percentualMinimo),
+                    cursosSelected
                 );
             } else {
                 res = await createModulo(
                     nome,
-                    setorString,
                     finalImageUrl,
                     descricao,
                     aprendizado,
                     bloqueado,
-                    requerModuloId,
-                    Number(percentualMinimo)
+                    requerModuloId || null,
+                    Number(percentualMinimo),
+                    cursosSelected
                 );
             }
 
@@ -112,7 +143,7 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                 cancelarEdicao();
                 onClose();
             }
-        } catch (e) {
+        } catch {
             toast.error("Erro no processamento.");
         } finally {
             setLoading(false);
@@ -137,7 +168,6 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                 </div>
 
                 <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar bg-[#0A0A0A]">
-
                     <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${editandoId ? 'bg-blue-500/5 border-blue-500/20' : 'bg-[#111] border-white/5'}`}>
                         <div className="space-y-5">
                             <input
@@ -164,17 +194,18 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                                 />
                             </div>
 
+                            {/* Capa */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
                                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><ImageIcon size={12} /> Capa do Módulo</label>
                                     <div className="flex bg-black p-1 rounded-xl border border-white/5">
-                                        <button onClick={() => setModoUpload(true)} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all ${modoUpload ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-slate-600'}`}>Upload</button>
-                                        <button onClick={() => setModoUpload(false)} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all ${!modoUpload ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-slate-600'}`}>URL</button>
+                                        <button onClick={() => setModoUpload(true)} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer ${modoUpload ? 'bg-orange-600 text-white' : 'text-slate-600'}`}>Upload</button>
+                                        <button onClick={() => setModoUpload(false)} className={`px-4 py-1.5 text-[8px] font-black uppercase rounded-lg transition-all cursor-pointer ${!modoUpload ? 'bg-orange-600 text-white' : 'text-slate-600'}`}>URL</button>
                                     </div>
                                 </div>
 
                                 {modoUpload ? (
-                                    <div className="relative border-2 border-dashed border-white/10 bg-[#161616] rounded-2xl p-6 text-center group hover:border-orange-500/40 transition-all">
+                                    <div className="relative border-2 border-dashed border-white/10 bg-[#161616] rounded-2xl p-6 text-center hover:border-orange-500/40 transition-all">
                                         <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                         <div className="flex flex-col items-center gap-2">
                                             <Upload size={20} className={logoFile ? "text-orange-500" : "text-slate-600"} />
@@ -189,22 +220,33 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-3 gap-2">
-                                {SETORES.map(s => (
-                                    <button
-                                        key={s}
-                                        type="button"
-                                        onClick={() => setSetoresSelected(prev => prev.includes(s) ? [] : [s])}
-                                        className={`py-3 rounded-xl text-[8px] font-black uppercase border transition-all ${setoresSelected.includes(s)
-                                                ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-600/10'
-                                                : 'bg-[#161616] border-white/5 text-slate-600 hover:border-white/20'
-                                            }`}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
+                            {/* Cursos selector */}
+                            <div className="space-y-3">
+                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2 block">
+                                    Vincular a Cursos {cursosSelected.length > 0 && <span className="text-orange-500">({cursosSelected.length} selecionado{cursosSelected.length > 1 ? 's' : ''})</span>}
+                                </label>
+                                {cursosDisponiveis.length === 0 ? (
+                                    <p className="text-[10px] text-slate-600 italic px-2">Nenhum curso cadastrado. Crie um curso primeiro.</p>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {cursosDisponiveis.map(c => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => toggleCurso(c.id)}
+                                                className={`py-3 px-4 rounded-xl text-[8px] font-black uppercase border transition-all cursor-pointer text-left ${cursosSelected.includes(c.id)
+                                                    ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-600/10'
+                                                    : 'bg-[#161616] border-white/5 text-slate-600 hover:border-white/20'
+                                                }`}
+                                            >
+                                                {c.nome}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Regras de Acesso */}
                             <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 space-y-6">
                                 <div className="flex items-center gap-2">
                                     <ShieldCheck className="text-orange-500" size={16} />
@@ -254,14 +296,14 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
 
                             <div className="flex gap-3 pt-2">
                                 {editandoId && (
-                                    <button onClick={cancelarEdicao} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-slate-400 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 transition-all">
+                                    <button onClick={cancelarEdicao} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-slate-400 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 transition-all cursor-pointer">
                                         <RotateCcw size={14} /> Cancelar
                                     </button>
                                 )}
                                 <button
                                     onClick={handleAction}
                                     disabled={loading}
-                                    className={`flex-[2] py-4 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 transition-all text-white shadow-2xl disabled:opacity-50 ${editandoId ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20' : 'bg-orange-600 hover:bg-orange-500 shadow-orange-950/20'}`}
+                                    className={`flex-[2] py-4 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 transition-all text-white shadow-2xl disabled:opacity-50 cursor-pointer ${editandoId ? 'bg-blue-600 hover:bg-blue-500' : 'bg-orange-600 hover:bg-orange-500'}`}
                                 >
                                     {loading ? <Loader2 className="animate-spin" size={14} /> : (editandoId ? <Save size={14} /> : <Plus size={14} />)}
                                     {editandoId ? "Salvar Alterações" : "Criar Novo Módulo"}
@@ -270,27 +312,36 @@ export default function ModalModulos({ isOpen, onClose }: { isOpen: boolean, onC
                         </div>
                     </div>
 
+                    {/* Module list */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 px-2">
                             <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Módulos Ativos na Plataforma</p>
                         </div>
                         <div className="grid grid-cols-1 gap-3">
-                            {modulos.map((m: any) => (
+                            {modulos.map((m) => (
                                 <div key={m.id} className="p-4 bg-[#111] rounded-[2rem] border border-white/5 flex justify-between items-center group hover:border-orange-500/30 transition-all shadow-lg">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-black border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
-                                            {m.imagemUrl ? <img src={m.imagemUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={20} className="text-slate-800" />}
+                                        <div className="w-12 h-12 rounded-2xl bg-black border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-inner relative">
+                                            {m.imagemUrl
+                                                ? <Image src={m.imagemUrl} alt={m.nome} fill className="object-cover" unoptimized />
+                                                : <ImageIcon size={20} className="text-slate-800" />
+                                            }
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="text-xs font-black text-white uppercase italic truncate pr-4">{m.nome}</h4>
                                             <div className="flex items-center gap-2 mt-1.5">
-                                                <span className="text-[7px] bg-white/5 px-2 py-0.5 rounded-full text-slate-500 font-black uppercase tracking-widest">{m.setor}</span>
+                                                <span className="text-[7px] bg-white/5 px-2 py-0.5 rounded-full text-slate-500 font-black uppercase tracking-widest">{m.setor || 'Sem setor'}</span>
                                                 {m.bloqueado && <Lock size={10} className="text-orange-500" />}
+                                                {(m.cursos?.length ?? 0) > 0 && (
+                                                    <span className="text-[7px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full font-black uppercase">
+                                                        {m.cursos!.length} curso{m.cursos!.length > 1 ? 's' : ''}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => carregarParaEdicao(m)} className="p-3 bg-white/5 text-slate-500 hover:bg-orange-600 hover:text-white rounded-2xl transition-all">
+                                    <button onClick={() => carregarParaEdicao(m)} className="p-3 bg-white/5 text-slate-500 hover:bg-orange-600 hover:text-white rounded-2xl transition-all cursor-pointer">
                                         <Edit3 size={14} />
                                     </button>
                                 </div>
