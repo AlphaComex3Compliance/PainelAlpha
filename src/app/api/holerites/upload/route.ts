@@ -72,7 +72,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       {
         access: "public",
         addRandomSuffix: true,
-        token: process.env.BLOB2_READ_WRITE_TOKEN,
+        token: process.env.HOLERITES_READ_WRITE_TOKEN,
       },
     );
 
