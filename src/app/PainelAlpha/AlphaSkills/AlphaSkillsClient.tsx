@@ -57,7 +57,7 @@ export default function AlphaSkillsClient({ session, initialCursos, initialVideo
     const [selectedModulo, setSelectedModulo] = useState<Modulo | null>(null);
     const [setorFiltro, setSetorFiltro] = useState("Todos");
 
-    const isAdmin = session?.user?.role === "Admin" || session?.user?.role === "Master";
+    const isAdmin = session?.user?.role === "Admin" || session?.user?.role === "CEO";
 
     const setoresDisponiveis = useMemo(() => {
         const set = new Set<string>();
@@ -84,6 +84,7 @@ export default function AlphaSkillsClient({ session, initialCursos, initialVideo
             ...curso,
             modulos: curso.modulos.map((mod, i) => ({
                 ...mod,
+                imagemUrl: mod.imagemUrl || curso.capa || '',
                 nomeExibicao: `Módulo ${i + 1}: `
             }))
         }));

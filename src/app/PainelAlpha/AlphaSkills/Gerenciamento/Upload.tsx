@@ -58,6 +58,7 @@ export default function SecaoUpload({ onSuccess }: { onSuccess: () => void }) {
     const [videos, setVideos] = useState<VideoLoteItem[]>([newLoteItem()]);
     const [moduloLoteId, setModuloLoteId] = useState("");
     const [loteProgress, setLoteProgress] = useState<{ current: number; total: number } | null>(null);
+    const [showModuloLote, setShowModuloLote] = useState(false);
 
     // ── Shared ──
     const [modulosDisponiveis, setModulosDisponiveis] = useState<ModuloItem[]>([]);
@@ -405,18 +406,52 @@ export default function SecaoUpload({ onSuccess }: { onSuccess: () => void }) {
 
                             {/* Footer: modulo selector + send */}
                             <div className="border-t border-white/5 pt-4 space-y-3">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2">Vincular todos ao módulo</label>
-                                    <select
-                                        value={moduloLoteId}
-                                        onChange={(e) => setModuloLoteId(e.target.value)}
-                                        className="w-full px-5 py-4 bg-[#1C1C1C] border border-white/5 rounded-2xl text-xs text-white outline-none focus:border-orange-500 transition-all"
+                                <div className="space-y-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModuloLote(!showModuloLote)}
+                                        className={`cursor-pointer w-full flex items-center justify-between px-5 py-4 rounded-2xl text-xs transition-all border ${moduloLoteId ? 'bg-blue-500/5 border-blue-500/30 text-white' : 'bg-[#1C1C1C] border-white/5 text-slate-400'}`}
                                     >
-                                        <option value="">Selecionar módulo...</option>
-                                        {modulosDisponiveis.map(m => (
-                                            <option key={m.id} value={m.id}>{m.nome}</option>
-                                        ))}
-                                    </select>
+                                        <div className="flex items-center gap-3">
+                                            <FolderKanban size={16} className={moduloLoteId ? "text-blue-500" : "text-slate-600"} />
+                                            <span className="font-bold uppercase tracking-tighter text-[10px]">
+                                                {moduloLoteId
+                                                    ? (() => { const m = modulosDisponiveis.find(x => x.id === moduloLoteId); return m ? m.nome : "Módulo selecionado"; })()
+                                                    : "Vincular todos ao Módulo"}
+                                            </span>
+                                        </div>
+                                        <Plus size={14} className={`transition-transform duration-300 ${showModuloLote ? 'rotate-45 text-blue-500' : ''}`} />
+                                    </button>
+
+                                    {showModuloLote && (
+                                        <div className="grid grid-cols-1 gap-2 p-3 bg-[#111] rounded-2xl border border-white/5 max-h-48 overflow-y-auto">
+                                            {modulosDisponiveis.length > 0 ? (
+                                                modulosDisponiveis.map((modulo) => {
+                                                    const isSelected = moduloLoteId === modulo.id;
+                                                    return (
+                                                        <button
+                                                            key={modulo.id}
+                                                            type="button"
+                                                            onClick={() => { setModuloLoteId(modulo.id); setShowModuloLote(false); }}
+                                                            className={`cursor-pointer flex items-center justify-between px-4 py-3 rounded-xl transition-all border ${isSelected ? 'bg-blue-500/20 border-blue-500 text-blue-500' : 'bg-[#1C1C1C] border-transparent text-slate-600 hover:bg-white/5'}`}
+                                                        >
+                                                            <div className="flex flex-col items-start">
+                                                                <span className="text-[9px] font-black uppercase">{modulo.nome}</span>
+                                                                <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">{modulo.setor}</span>
+                                                            </div>
+                                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-800 bg-black'}`}>
+                                                                {isSelected && <CheckCircle2 size={10} />}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="py-4 text-center text-[8px] font-black text-slate-700 uppercase italic">
+                                                    Nenhum módulo. Crie um acima.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {loteProgress && (
