@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
     Settings, Trophy, Target, ArrowLeft,
-    X, Check, RefreshCw, Users, Loader2, Crown, TrendingUp,
+    X, Check, RefreshCw, Users, Loader2, Crown, TrendingUp, Briefcase,
 } from "lucide-react";
+import ModalGerenciamentoLeads from "@/components/comercial/ModalGerenciamentoLeads";
 import { getTema } from "@/lib/temas";
 import { toast } from "sonner";
 import {
@@ -29,6 +30,8 @@ interface Props {
     isAdmin: boolean;
     mesAtual: number;
     anoAtual: number;
+    role: string;
+    nomeUsuario: string;
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
@@ -717,7 +720,7 @@ function ModalConfigurar({ mes, ano, onFechar }: { mes: number; ano: number; onF
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual }: Props) {
+export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual, role, nomeUsuario }: Props) {
     const router = useRouter();
     const [colaboradores, setColaboradores] = useState<ColaboradorMeta[]>(
         dadosIniciais.success ? dadosIniciais.colaboradores : []
@@ -726,6 +729,8 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
     const [totalVendas, setTotalVendas] = useState(dadosIniciais.success ? dadosIniciais.totalVendas : 0);
     const [atualizando, setAtualizando] = useState(false);
     const [modalAberto, setModalAberto] = useState(false);
+    const [modalGerenciamentoAberto, setModalGerenciamentoAberto] = useState(false);
+    const [rowHeight, setRowHeight] = useState(120);
 
     // Celebrações individuais
     const [celebracaoQueue, setCelebracaoQueue] = useState<ColaboradorMeta[]>([]);
@@ -761,6 +766,7 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
     // Processar fila individual
     useEffect(() => {
         if (!celebrandoAtual && celebracaoQueue.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCelebrandoAtual(celebracaoQueue[0]);
             setCelebracaoQueue((prev) => prev.slice(1));
         }
@@ -807,23 +813,21 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
         }
     }, [processarCelebracoes]);
 
-    useEffect(() => {
-        const interval = setInterval(atualizar, 60_000);
-        return () => clearInterval(interval);
-    }, [atualizar]);
+    // Sem polling: atualizar é chamado via callback onDadosAlterados do modal
 
-    useEffect(() => {
-        const reload = setInterval(() => window.location.reload(), 120_000);
-        return () => clearInterval(reload);
-    }, []);
-
-    // Altura de cada linha baseada no número de colaboradores
     const HEADER_HEIGHT = 72;
     const MIN_ROW = 84;
     const MAX_ROW = 150;
-    const rowHeight = colaboradores.length > 0
-        ? Math.max(MIN_ROW, Math.min(MAX_ROW, Math.floor((typeof window !== "undefined" ? window.innerHeight - HEADER_HEIGHT : 600) / colaboradores.length)))
-        : 120;
+
+    useEffect(() => {
+        const calc = () => {
+            if (colaboradores.length === 0) { setRowHeight(120); return; }
+            setRowHeight(Math.max(MIN_ROW, Math.min(MAX_ROW, Math.floor((window.innerHeight - HEADER_HEIGHT) / colaboradores.length))));
+        };
+        calc();
+        window.addEventListener("resize", calc);
+        return () => window.removeEventListener("resize", calc);
+    }, [colaboradores.length]);
 
     const metaEquipePct = metaEquipe > 0 ? Math.min((totalVendas / metaEquipe) * 100, 100) : 0;
     const equipeBateuMeta = metaEquipe > 0 && totalVendas >= metaEquipe;
@@ -900,6 +904,14 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
                         {equipeBateuMeta && <Trophy size={14} className="text-amber-400" />}
                     </div>
 
+                    <button
+                        onClick={() => setModalGerenciamentoAberto(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 transition-all text-emerald-400"
+                    >
+                        <Briefcase size={15} />
+                        <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Gerenciamento de Leads</span>
+                    </button>
+
                     {isAdmin && (
                         <button
                             onClick={() => setModalAberto(true)}
@@ -956,7 +968,7 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
                 />
             )}
 
-            {/* Modal admin */}
+            {/* Modal admin metas */}
             {modalAberto && (
                 <ModalConfigurar
                     mes={mesAtual}
@@ -965,6 +977,16 @@ export default function MetasClient({ dadosIniciais, isAdmin, mesAtual, anoAtual
                         setModalAberto(false);
                         atualizar();
                     }}
+                />
+            )}
+
+            {/* Modal gerenciamento de leads */}
+            {modalGerenciamentoAberto && (
+                <ModalGerenciamentoLeads
+                    role={role}
+                    nomeUsuario={nomeUsuario}
+                    onFechar={() => setModalGerenciamentoAberto(false)}
+                    onDadosAlterados={() => { void atualizar(); }}
                 />
             )}
         </main>

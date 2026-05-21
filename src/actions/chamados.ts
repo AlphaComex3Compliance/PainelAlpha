@@ -4,15 +4,16 @@ import { auth } from "../../auth";
 import db from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import Pusher from "pusher";
+import { pusherServer } from "@/lib/pusher-server.ts";
 
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-  useTLS: true,
-});
+export interface NovoChamadoPayload {
+  chamadoId: number;
+  titulo: string;
+  usuario: string;
+  setor: string;
+  urgencia: string;
+  createdAt: string;
+}
 
 export async function updateChamadosStatus(id: number, novoStatus: string, solucao?: string) {
   const session = await auth();
@@ -80,7 +81,7 @@ export async function createChamadoAction(formData: FormData) {
       return { error: "Você já enviou um chamado similar recentemente. Aguarde 5 minutos." };
     }
 
-    await db.chamados.create({
+    const novoChamado = await db.chamados.create({
       data: {
         titulo,
         categoria,
@@ -98,6 +99,21 @@ export async function createChamadoAction(formData: FormData) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date());
+
+    const payload: NovoChamadoPayload = {
+      chamadoId: novoChamado.id,
+      titulo: novoChamado.titulo,
+      usuario: session.user.nome || "Usuário",
+      setor: session.user.role || "",
+      urgencia: novoChamado.prioridade,
+      createdAt: novoChamado.createdAt.toISOString(),
+    };
+
+    try {
+      await pusherServer.trigger("private-admin-chamados", "novo-chamado", payload);
+    } catch (pusherErr) {
+      console.error("[Pusher] Falha ao disparar evento novo-chamado:", pusherErr);
+    }
 
     await avisarNoZap(
       titulo,
@@ -135,7 +151,7 @@ export async function enviarMensagemAction(
       include: { autor: true },
     });
 
-    await pusher.trigger(`chat-${chamadoId}`, "nova-mensagem", novaMsg);
+    await pusherServer.trigger(`chat-${chamadoId}`, "nova-mensagem", novaMsg);
     return { success: true };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Erro desconhecido";

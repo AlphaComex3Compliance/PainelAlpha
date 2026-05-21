@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import Pusher from "pusher-js";
+import { pusherClient } from "@/lib/pusher";
 import {
   MessageSquare, Send, Loader2, X, Paperclip,
   FileText, FileSpreadsheet, Download, ShieldCheck,
@@ -62,21 +62,18 @@ export default function ChatChamado({
   }, [aberto]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMensagens(mensagensIniciais || []);
     setNovasNoFront(contagem || 0);
   }, [chamadoId, contagem, mensagensIniciais]);
 
   useEffect(() => {
-    if (!mounted || !chamadoId) return;
-
-    const pusherClient = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-      forceTLS: true,
-    });
+    if (!mounted || !chamadoId || !pusherClient) return;
 
     const channel = pusherClient.subscribe(`chat-${chamadoId}`);
 
@@ -92,9 +89,8 @@ export default function ChatChamado({
     });
 
     return () => {
-      channel.unbind_all();
+      channel.unbind("nova-mensagem");
       pusherClient.unsubscribe(`chat-${chamadoId}`);
-      pusherClient.disconnect();
     };
   }, [mounted, chamadoId, usuarioAtualId]);
 
@@ -111,6 +107,7 @@ export default function ChatChamado({
 
   useEffect(() => {
     if (aberto && novasNoFront > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       limparNotificacoes();
     }
   }, [aberto, novasNoFront, limparNotificacoes]);

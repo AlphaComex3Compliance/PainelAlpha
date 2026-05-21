@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 
 export default async function registerAction(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ) {
   try {
@@ -17,9 +17,6 @@ export default async function registerAction(
     const email = formData.get("email") as string;
     const senha = formData.get("senha") as string;
     const role = (formData.get("role") as string) || "User";
-
-    const permissoesArray = formData.getAll("permissoes") as string[];
-    const permissoesString = permissoesArray.join(",");
 
     if (!nome || !usuario || !email || !senha) {
       return {
@@ -41,13 +38,20 @@ export default async function registerAction(
       };
     }
 
+    // Derive initial permissoes from sector's SetorPermissao for backwards compat
+    const setorPerms = await db.setorPermissao.findMany({
+      where: { setor: role },
+      select: { modulo: true },
+    });
+    const permissoesString = setorPerms.map(p => p.modulo).join(',');
+
     await db.usuarios.create({
       data: {
         nome,
         usuario,
         email,
         senha: hashSync(senha, 10),
-        role, 
+        role,
         permissoes: permissoesString,
       },
     });
@@ -56,9 +60,9 @@ export default async function registerAction(
 
     return {
       success: true,
-      message: "Usuário criado com sucesso!", 
+      message: "Usuário criado com sucesso!",
     };
-    
+
   } catch (error) {
     console.error("Erro ao registrar:", error);
     return {

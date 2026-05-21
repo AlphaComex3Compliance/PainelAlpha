@@ -60,10 +60,12 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
     const [analistaResponsavel, setAnalistaResponsavel] = useState(cliente?.analistaResponsavel || "");
 
     const [showServicos, setShowServicos] = useState(false);
+    const [showAnalistas, setShowAnalistas] = useState(false);
     const [isCriandoServico, setIsCriandoServico] = useState(false);
     const [novoServicoNome, setNovoServicoNome] = useState("");
 
     const listaServicos = ["Habilitação RADAR - 50K", "Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO", "TTD 409", "Recuperação AFRMM", "Outras Recuperaçoes Tributarias"];
+    const listaAnalistas = ["Vitor", "Maria", "Kaline", "Marcelo"];
     const SERVICOS_COM_EMBASAMENTO = ["Revisão RADAR - 150K", "Revisão RADAR - ILIMITADO"];
     const embasamentoDesbloqueado = SERVICOS_COM_EMBASAMENTO.some(s => servicosSelecionados.includes(s));
 
@@ -657,13 +659,38 @@ export default function ModalGestaoCliente({ isOpen, onClose, cliente, aoSalvar 
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Analista Responsável</label>
                             {editandoDados ? (
-                                <input
-                                    type="text"
-                                    value={analistaResponsavel}
-                                    onChange={(e) => setAnalistaResponsavel(e.target.value)}
-                                    placeholder="NOME DO ANALISTA"
-                                    className="w-full bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl text-sm font-bold text-indigo-400 outline-none placeholder:text-indigo-900/30 transition-all focus:border-indigo-500"
-                                />
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAnalistas((v) => !v)}
+                                        className="w-full bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl text-sm font-bold text-indigo-400 outline-none transition-all focus:border-indigo-500 flex items-center justify-between hover:border-indigo-500/50"
+                                    >
+                                        <span className={analistaResponsavel ? "uppercase italic" : "text-indigo-900/40"}>
+                                            {analistaResponsavel || "SELECIONAR ANALISTA"}
+                                        </span>
+                                        <User size={14} className="text-indigo-500 shrink-0" />
+                                    </button>
+                                    {showAnalistas && (
+                                        <div className="absolute top-full mt-1 left-0 right-0 bg-slate-900 border border-white/10 rounded-2xl p-3 z-30 shadow-2xl">
+                                            <div className="space-y-0.5 max-h-48 overflow-y-auto custom-scrollbar">
+                                                {listaAnalistas.map((a) => (
+                                                    <button
+                                                        key={a}
+                                                        type="button"
+                                                        onClick={() => { setAnalistaResponsavel(a); setShowAnalistas(false); }}
+                                                        className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all ${
+                                                            analistaResponsavel === a
+                                                                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
+                                                                : "hover:bg-white/5 text-slate-400"
+                                                        }`}
+                                                    >
+                                                        {a}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
                                 <div className="bg-slate-900/30 border border-slate-800/50 p-3 rounded-xl text-sm text-indigo-400/70 font-black uppercase tracking-tighter truncate italic">
                                     {cliente.analistaResponsavel || "Não Atribuído"}

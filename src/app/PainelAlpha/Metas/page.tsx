@@ -18,6 +18,8 @@ export default async function MetasPage() {
             isAdmin={session.user.role === "Admin"}
             mesAtual={agora.getMonth() + 1}
             anoAtual={agora.getFullYear()}
+            role={session.user.role ?? ""}
+            nomeUsuario={(session.user as { nome?: string }).nome ?? ""}
         />
     );
 }

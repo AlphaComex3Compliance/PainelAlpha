@@ -49,9 +49,11 @@ model usuarios {
   crm_oportunidades crm_oportunidades[] @relation("CrmOportunidadesResponsavel")
   crm_atividades    crm_atividades[]    @relation("CrmAtividadesAutor")
 
-  holeritesColaborador Holerite[]   @relation("HoleriteColaborador")
-  holeriteUploads      Holerite[]   @relation("HoleriteUploader")
-  popAcessos           PopAcesso[]  @relation("PopAcessoUsuario")
+  holeritesColaborador     Holerite[]                 @relation("HoleriteColaborador")
+  holeriteUploads          Holerite[]                 @relation("HoleriteUploader")
+  popAcessos               PopAcesso[]                @relation("PopAcessoUsuario")
+  permissaoOverrides       UsuarioPermissaoOverride[]
+  contratosComerciais      ContratoComercial[]        @relation("ContratosComerciais")
 }
 
 model chamados {
@@ -853,6 +855,53 @@ model crm_atividades {
 
 // ─── Alpha Metas ──────────────────────────────────────────────────────────────
 
+model ContratoComercial {
+  id           String   @id @default(cuid())
+
+  cnpj         String
+  razaoSocial  String
+  nomeFantasia String?
+
+  valorContrato  Float
+  formaPagamento String
+  servico        String
+  canalAquisicao String
+
+  closerNome String
+
+  status String @default("ENVIADO")
+
+  pagamentoConfirmado   Boolean  @default(false)
+  pagamentoConfirmadoEm DateTime?
+
+  contratoAssinado Boolean @default(false)
+  contratoUrl      String?
+
+  socios Json?
+
+  mes Int
+  ano Int
+
+  usuarioId Int
+  usuario   usuarios @relation("ContratosComerciais", fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([usuarioId])
+  @@index([mes, ano])
+  @@index([status])
+  @@map("contratos_comerciais")
+}
+
+model ServicosComerciais {
+  id   Int     @id @default(autoincrement())
+  nome String  @unique
+  ativo Boolean @default(true)
+
+  @@map("servicos_comerciais")
+}
+
 model MetaUsuario {
   id             Int      @id @default(autoincrement())
   colaboradoraId String
@@ -896,6 +945,34 @@ model PopAcesso {
   @@index([usuarioId])
   @@index([setor])
   @@map("popAcesso")
+}
+
+// ─── Permissões por Setor ─────────────────────────────────────────────────────
+
+model SetorPermissao {
+  id        Int      @id @default(autoincrement())
+  setor     String
+  modulo    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([setor, modulo])
+  @@index([setor])
+}
+
+model UsuarioPermissaoOverride {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  modulo    String
+  acao      String   // "ADD" | "REMOVE"
+  motivo    String?
+  criadoPor Int
+  createdAt DateTime @default(now())
+
+  usuario usuarios @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, modulo])
+  @@index([usuarioId])
 }
 
 // ─── Alpha Holerites ──────────────────────────────────────────────────────────

@@ -2,7 +2,6 @@
 
 import db from "@/lib/prisma";
 import { auth } from "../../auth";
-import { startOfMonth, endOfMonth } from "date-fns";
 
 export interface ColaboradorMeta {
     colaboradoraId: string;
@@ -27,45 +26,40 @@ export interface DadosMetasError {
     error: string;
 }
 
-export async function getDadosMetas(): Promise<DadosMetasResult | DadosMetasError> {
+export async function getDadosMetas(
+    mesParam?: number,
+    anoParam?: number,
+): Promise<DadosMetasResult | DadosMetasError> {
     const agora = new Date();
-    const mes = agora.getMonth() + 1;
-    const ano = agora.getFullYear();
+    const mes = mesParam ?? agora.getMonth() + 1;
+    const ano = anoParam ?? agora.getFullYear();
 
     try {
-        // Fonte de verdade: todos os usuários com role COMERCIAL
-        const [comerciais, registros, metas, metaEquipe] = await Promise.all([
+        // Fonte de verdade: ContratoComercial.status = FECHADO (desacoplado de ComercialPerformance)
+        const [comerciais, contratosFechados, metas, metaEquipe] = await Promise.all([
             db.usuarios.findMany({
                 where: { role: "COMERCIAL" },
-                select: { nome: true, imagemUrl: true, tema_interface: true },
+                select: { id: true, nome: true, imagemUrl: true, tema_interface: true },
                 orderBy: { nome: "asc" },
             }),
-            db.comercialPerformance.groupBy({
-                by: ["colaboradoraId"],
-                _sum: { contratosHabilitacao: true, contratosRevisao: true },
-                where: {
-                    dataRegistro: {
-                        gte: startOfMonth(agora),
-                        lte: endOfMonth(agora),
-                    },
-                },
+            db.contratoComercial.groupBy({
+                by: ["usuarioId"],
+                _count: { id: true },
+                where: { status: "FECHADO", mes, ano },
             }),
             db.metaUsuario.findMany({ where: { mes, ano } }),
             db.metaEquipe.findFirst({ where: { mes, ano } }),
         ]);
 
         const colaboradores: ColaboradorMeta[] = comerciais.map((usuario) => {
-            const registro = registros.find((r) => r.colaboradoraId === usuario.nome);
+            const fechados = contratosFechados.find((c) => c.usuarioId === usuario.id);
             const metaReg = metas.find((m) => m.colaboradoraId === usuario.nome);
-            const vendas =
-                (registro?._sum.contratosHabilitacao ?? 0) +
-                (registro?._sum.contratosRevisao ?? 0);
             return {
                 colaboradoraId: usuario.nome,
                 nome: usuario.nome,
                 imagemUrl: usuario.imagemUrl ?? null,
                 tema: usuario.tema_interface ?? "blue",
-                vendas,
+                vendas: fechados?._count.id ?? 0,
                 meta: metaReg?.metaMensal ?? 0,
             };
         });
@@ -126,7 +120,7 @@ export async function upsertMetaUsuario(
     colaboradoraId: string,
     metaMensal: number,
     mes: number,
-    ano: number
+    ano: number,
 ) {
     const session = await auth();
     if (!session || session.user.role !== "Admin")

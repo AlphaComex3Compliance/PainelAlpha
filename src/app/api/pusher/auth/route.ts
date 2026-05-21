@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
 import { pusherServer } from "@/lib/pusher-server.ts";
 
+const ADMIN_ROLES = ["Admin", "CEO"];
+const ADMIN_CHANNELS = ["private-admin-chamados"];
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
       return new NextResponse("Não autorizado", { status: 401 });
     }
@@ -14,15 +17,23 @@ export async function POST(req: Request) {
     const socketId = formData.get("socket_id") as string;
     const channelName = formData.get("channel_name") as string;
 
+    if (ADMIN_CHANNELS.includes(channelName)) {
+      const role = session.user.role ?? "";
+      if (!ADMIN_ROLES.includes(role)) {
+        return new NextResponse("Proibido", { status: 403 });
+      }
+      const authResponse = pusherServer.authorizeChannel(socketId, channelName);
+      return NextResponse.json(authResponse);
+    }
+
     const presenceData = {
       user_id: session.user.id.toString(),
       user_info: {
-        name: (session.user as any).nome || session.user.nome,
+        name: session.user.nome,
       },
     };
 
     const authResponse = pusherServer.authorizeChannel(socketId, channelName, presenceData);
-
     return NextResponse.json(authResponse);
   } catch (error) {
     console.error("Erro no Pusher Auth:", error);
