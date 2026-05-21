@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -11,7 +11,7 @@ import {
   Megaphone, Trophy, Landmark, FileSearch, ScanSearch,
   Scale, FileText, GraduationCap, BookOpen, KeyRound,
   FileStack, Users, Briefcase, TrendingUp, Layers, Shield,
-  ChevronLeft, ChevronRight, X, PanelLeft, User, SlidersHorizontal, Zap,
+  ChevronLeft, ChevronRight, X, PanelLeft, User, SlidersHorizontal, Zap, Pin,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -73,6 +73,21 @@ export default function GlobalSidebar({
   const pathname = usePathname();
   const isAdmin = role === 'Admin' || role === 'CEO';
 
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('painel_alpha_sidebar_pins') ?? '[]') as string[];
+    } catch { return []; }
+  });
+
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      localStorage.setItem('painel_alpha_sidebar_pins', JSON.stringify(next));
+      return next;
+    });
+  };
+
   // Close mobile drawer on route change
   useEffect(() => {
     onCloseMobile();
@@ -93,10 +108,14 @@ export default function GlobalSidebar({
     return true;
   });
 
-  const categorias = CATEGORIAS.filter(c => {
-    if (c.adminOnly && !isAdmin) return false;
-    return modulos.some(m => m.category === c.id);
-  });
+  const adminModulos = modulos.filter(m => m.category === 'admin');
+  const nonAdminModulos = modulos.filter(m => m.category !== 'admin');
+  const pinnedModulos = pinnedIds
+    .map(id => nonAdminModulos.find(m => m.id === id))
+    .filter((m): m is typeof nonAdminModulos[number] => !!m);
+  const unpinnedModulos = nonAdminModulos.filter(m => !pinnedIds.includes(m.id));
+
+  const adminCat = CATEGORIAS.find(c => c.id === 'admin');
 
   const initials = nome?.substring(0, 2).toUpperCase() || 'OP';
 
@@ -131,66 +150,110 @@ export default function GlobalSidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-6 custom-scrollbar">
-        {categorias.map(cat => {
-          const CatIcon = ICON_MAP[cat.iconName] ?? Layers;
-          const catModulos = modulos.filter(m => m.category === cat.id);
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-0.5 custom-scrollbar">
+        {/* Pinned + unpinned non-admin modules — flat list */}
+        {[...pinnedModulos, ...unpinnedModulos].map(mod => {
+          const Icon = ICON_MAP[mod.iconName] ?? FileText;
+          const isActive = pathname === mod.href || pathname.startsWith(mod.href + '/');
+          const isPinned = pinnedIds.includes(mod.id);
+          const activeClass = isActive ? ACTIVE_BG[mod.category] : 'text-slate-500 hover:text-white hover:bg-white/5 border-transparent';
 
           return (
-            <div key={cat.id}>
-              {/* Category header */}
-              {!isCollapsed && (
-                <div className={`flex items-center gap-2 px-3 mb-2`}>
-                  <CatIcon size={11} className={CAT_COLORS[cat.id]} />
-                  <span className={`text-[9px] font-black uppercase tracking-[0.25em] ${CAT_COLORS[cat.id]}`}>
-                    {cat.label}
+            <div key={mod.id} className="relative group/item">
+              <Link
+                href={mod.href}
+                title={isCollapsed ? mod.label : undefined}
+                aria-label={mod.label}
+                className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-200 group
+                  ${isCollapsed ? 'justify-center' : 'pr-8'}
+                  ${activeClass}
+                `}
+              >
+                <Icon
+                  size={16}
+                  className={`shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
+                />
+                {!isCollapsed && (
+                  <span className="text-[10px] font-black uppercase tracking-tight truncate leading-none">
+                    {mod.label}
                   </span>
-                  <div className="flex-1 h-px bg-white/5" />
-                </div>
+                )}
+                {isActive && !isCollapsed && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                )}
+              </Link>
+              {!isCollapsed && (
+                <button
+                  onClick={e => { e.preventDefault(); togglePin(mod.id); }}
+                  title={isPinned ? 'Desafixar' : 'Fixar no topo'}
+                  className={`
+                    absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all duration-200
+                    ${isPinned
+                      ? 'text-amber-400 opacity-100'
+                      : 'text-slate-600 opacity-0 group-hover/item:opacity-100 hover:text-amber-400'}
+                  `}
+                >
+                  <Pin size={11} className={isPinned ? 'fill-amber-400' : ''} />
+                </button>
               )}
-              {isCollapsed && (
-                <div className="flex justify-center mb-1">
-                  <div className="w-4 h-px bg-white/10" />
-                </div>
-              )}
-
-              <div className="space-y-0.5">
-                {catModulos.map(mod => {
-                  const Icon = ICON_MAP[mod.iconName] ?? FileText;
-                  const isActive = pathname === mod.href || pathname.startsWith(mod.href + '/');
-                  const activeClass = isActive ? ACTIVE_BG[mod.category] : 'text-slate-500 hover:text-white hover:bg-white/5 border-transparent';
-
-                  return (
-                    <Link
-                      key={mod.id}
-                      href={mod.href}
-                      title={isCollapsed ? mod.label : undefined}
-                      aria-label={mod.label}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-200 group
-                        ${isCollapsed ? 'justify-center' : ''}
-                        ${activeClass}
-                      `}
-                    >
-                      <Icon
-                        size={16}
-                        className={`shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
-                      />
-                      {!isCollapsed && (
-                        <span className="text-[10px] font-black uppercase tracking-tight truncate leading-none">
-                          {mod.label}
-                        </span>
-                      )}
-                      {isActive && !isCollapsed && (
-                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-current shrink-0" />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
             </div>
           );
         })}
+
+        {/* Admin section — only if admin has modules */}
+        {isAdmin && adminModulos.length > 0 && (
+          <div className="pt-4">
+            {!isCollapsed && adminCat && (
+              <div className="flex items-center gap-2 px-3 mb-2">
+                {(() => { const CatIcon = ICON_MAP[adminCat.iconName] ?? Layers; return <CatIcon size={11} className={CAT_COLORS['admin']} />; })()}
+                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">
+                  {adminCat.label}
+                </span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+            )}
+            {isCollapsed && (
+              <div className="flex justify-center mb-1">
+                <div className="w-4 h-px bg-white/10" />
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {adminModulos.map(mod => {
+                const Icon = ICON_MAP[mod.iconName] ?? FileText;
+                const isActive = pathname === mod.href || pathname.startsWith(mod.href + '/');
+                const activeClass = isActive ? ACTIVE_BG['admin'] : 'text-slate-500 hover:text-white hover:bg-white/5 border-transparent';
+
+                return (
+                  <Link
+                    key={mod.id}
+                    href={mod.href}
+                    title={isCollapsed ? mod.label : undefined}
+                    aria-label={mod.label}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-200 group
+                      ${isCollapsed ? 'justify-center' : ''}
+                      ${activeClass}
+                    `}
+                  >
+                    <Icon
+                      size={16}
+                      className={`shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
+                    />
+                    {!isCollapsed && (
+                      <span className="text-[10px] font-black uppercase tracking-tight truncate leading-none">
+                        {mod.label}
+                      </span>
+                    )}
+                    {isActive && !isCollapsed && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Footer: avatar + dropdown */}
