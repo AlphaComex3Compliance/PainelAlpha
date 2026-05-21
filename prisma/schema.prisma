@@ -31,6 +31,19 @@ model usuarios {
   data_contratacao String?
   status           String  @default("ATIVO")
 
+  cpf                  String?
+  data_nascimento      String?
+  telefone             String?
+  telefone_corporativo String?
+  contato_emerg_1_nome String?
+  contato_emerg_1_tel  String?
+  contato_emerg_2_nome String?
+  contato_emerg_2_tel  String?
+  observacoes_internas String?
+
+  contratosColaborador ContratoColaborador[]
+  checklistDocumental  ChecklistDocumental?
+
   reset_token   String?
   reset_expires DateTime?
 
@@ -1008,4 +1021,69 @@ model Holerite {
   @@index([ano, mes])
   @@index([status])
   @@map("holerite")
+}
+
+// ─── RH / Colaboradores ───────────────────────────────────────────────────────
+
+model CargoColaborador {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("cargo_colaborador")
+}
+
+model ModalidadeContrato {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("modalidade_contrato")
+}
+
+model ContratoColaborador {
+  id              String   @id @default(cuid())
+  usuarioId       Int
+  usuario         usuarios @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  tipo            String
+  modalidade      String
+  dataInicio      DateTime
+  dataFim         DateTime?
+  renovacaoNumero Int      @default(0)
+  status          String   @default("EXPERIENCIA")
+  contratoUrl     String?
+  observacoes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([usuarioId])
+  @@index([status])
+  @@map("contrato_colaborador")
+}
+
+model ChecklistDocumental {
+  id                    String   @id @default(cuid())
+  usuarioId             Int      @unique
+  usuario               usuarios @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  carteiraTrabalho      Boolean  @default(false)
+  pis                   Boolean  @default(false)
+  identidade            Boolean  @default(false)
+  cpfDoc                Boolean  @default(false)
+  cnh                   Boolean  @default(false)
+  tituloEleitor         Boolean  @default(false)
+  reservista            Boolean  @default(false)
+  comprovanteResidencia Boolean  @default(false)
+  certidao              Boolean  @default(false)
+  foto3x4               Boolean  @default(false)
+  exameAdmissional      Boolean  @default(false)
+  escolaridade          Boolean  @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("checklist_documental")
 }

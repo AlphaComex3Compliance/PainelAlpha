@@ -11,7 +11,7 @@ import {
   Megaphone, Trophy, Landmark, FileSearch, ScanSearch,
   Scale, FileText, GraduationCap, BookOpen, KeyRound,
   FileStack, Users, Briefcase, TrendingUp, Layers, Shield,
-  ChevronLeft, ChevronRight, X, PanelLeft, User, SlidersHorizontal, Zap, Pin,
+  ChevronLeft, ChevronRight, X, PanelLeft, User, SlidersHorizontal, Pin,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -73,12 +73,14 @@ export default function GlobalSidebar({
   const pathname = usePathname();
   const isAdmin = role === 'Admin' || role === 'CEO';
 
-  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem('painel_alpha_sidebar_pins') ?? '[]') as string[];
-    } catch { return []; }
-  });
+      const stored = JSON.parse(localStorage.getItem('painel_alpha_sidebar_pins') ?? '[]') as string[];
+      if (stored.length > 0) setPinnedIds(stored);
+    } catch { /* ignore */ }
+  }, []);
 
   const togglePin = (id: string) => {
     setPinnedIds(prev => {
@@ -103,13 +105,15 @@ export default function GlobalSidebar({
   }, [onCloseMobile]);
 
   const modulos = MODULOS_REGISTRY.filter(m => {
-    if (m.adminOnly && !isAdmin) return false;
-    if (!isAdmin && m.permission && !permissoes.includes(m.permission)) return false;
+    if (m.adminOnly && !isAdmin) {
+      if (!m.allowedRoles?.includes(role)) return false;
+    }
+    if (!isAdmin && !m.allowedRoles?.includes(role) && m.permission && !permissoes.includes(m.permission)) return false;
     return true;
   });
 
-  const adminModulos = modulos.filter(m => m.category === 'admin');
-  const nonAdminModulos = modulos.filter(m => m.category !== 'admin');
+  const adminModulos = isAdmin ? modulos.filter(m => m.category === 'admin') : [];
+  const nonAdminModulos = isAdmin ? modulos.filter(m => m.category !== 'admin') : modulos;
   const pinnedModulos = pinnedIds
     .map(id => nonAdminModulos.find(m => m.id === id))
     .filter((m): m is typeof nonAdminModulos[number] => !!m);
@@ -314,12 +318,6 @@ export default function GlobalSidebar({
                 </DropdownMenuItem>
               </Link>
 
-              <Link href="/PainelAlpha/InfosPerfil/Atalhos" className="cursor-pointer block">
-                <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-2xl text-slate-400 cursor-pointer border border-transparent hover:border-amber-500/30 hover:bg-amber-600/10 hover:text-amber-400 focus:bg-amber-600/10 focus:text-amber-400 transition-all duration-300 group outline-none">
-                  <Zap size={16} className="text-amber-500 group-hover:animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest italic">Atalhos Rápidos</span>
-                </DropdownMenuItem>
-              </Link>
             </div>
 
             <DropdownMenuSeparator className="bg-white/5 mx-2" />

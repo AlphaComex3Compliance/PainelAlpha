@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Globe, ShieldCheck, ArrowRight, Cpu,
-  Bell, Zap, Search, Star, Lock,
+  Bell, Zap, Search, Lock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import Pusher from "pusher-js";
 import { getTema, TemaAlpha } from "@/lib/temas";
 import { MODULOS_REGISTRY, CATEGORIAS, ModuloRegistryItem } from "@/lib/modulos-registry";
 
-export default function PainelAlphaClient({ session, chamadosIniciais, configBanco }: any) {
+export default function PainelAlphaClient({ session, chamadosIniciais, configBanco, permissoesEfetivas }: any) {
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [notificacoesLive, setNotificacoesLive] = useState(0);
@@ -28,18 +28,16 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
   const isFinc     = userRole === "FINANCEIRO";
 
   const userPermissions: string[] = useMemo(() => {
+    // Prefer server-resolved permissions (includes SetorPermissao + UsuarioPermissaoOverride)
+    if (Array.isArray(permissoesEfetivas) && permissoesEfetivas.length > 0) {
+      return permissoesEfetivas.map((x: string) => String(x));
+    }
+    // Fallback: stale JWT (only used if page was server-rendered without permissoesEfetivas)
     const p = session?.user?.permissoes;
     if (Array.isArray(p)) return p.map((x: string) => String(x));
     if (typeof p === "string" && p.length > 0) return p.split(",").map((x: string) => x.trim());
     return [];
-  }, [session]);
-
-  const esconderBloqueados: boolean = session?.user?.esconderBloqueados || false;
-
-  const idsAtalhos: string[] = useMemo(() => {
-    const raw = (session?.user as any)?.atalhos as string | null;
-    return raw ? raw.split(",") : [];
-  }, [session]);
+  }, [session, permissoesEfetivas]);
 
   const temaNome     = configBanco?.tema || "blue";
   const densidade    = configBanco?.densidade || "default";
@@ -72,31 +70,30 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
   }, [mounted, chamadosIniciais, session?.user?.id]);
 
   // ── Filter + group ────────────────────────────────────────
-  const { atalhos, byCategory } = useMemo(() => {
+  const byCategory = useMemo(() => {
     const busca = searchTerm.toLowerCase();
 
     const filtered = MODULOS_REGISTRY.filter(m => {
-      if (m.adminOnly && !isAdmin && !isCeo) return false;
-      const temAcesso = isAdmin || isCeo || userPermissions.some(p => p.toLowerCase() === m.permission?.toLowerCase());
-      if (esconderBloqueados && !temAcesso) return false;
+      if (m.adminOnly && !isAdmin && !isCeo) {
+        const roleOk = m.allowedRoles?.includes(userRole);
+        if (!roleOk) return false;
+      }
+      const temAcesso = isAdmin || isCeo ||
+        m.allowedRoles?.includes(userRole) ||
+        userPermissions.some(p => p.toLowerCase() === m.permission?.toLowerCase());
+      if (!temAcesso) return false;
       if (busca && !m.label.toLowerCase().includes(busca)) return false;
       return true;
     });
 
-    const listaAtalhos = filtered
-      .filter(m => idsAtalhos.includes(m.id))
-      .sort((a, b) => idsAtalhos.indexOf(a.id) - idsAtalhos.indexOf(b.id));
-
-    const semAtalhos = filtered.filter(m => !idsAtalhos.includes(m.id));
-
     const groups: Record<string, typeof filtered> = {};
-    semAtalhos.forEach(m => {
+    filtered.forEach(m => {
       if (!groups[m.category]) groups[m.category] = [];
       groups[m.category].push(m);
     });
 
-    return { atalhos: listaAtalhos, byCategory: groups };
-  }, [searchTerm, isAdmin, isCeo, userPermissions, esconderBloqueados, idsAtalhos]);
+    return groups;
+  }, [searchTerm, isAdmin, isCeo, userPermissions, userRole]);
 
   if (!mounted) return null;
 
@@ -195,37 +192,8 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
           })}
         </section>
 
-        {/* ── ATALHOS (favoritos) ── */}
-        {atalhos.length > 0 && (
-          <section>
-            <div className="flex items-center gap-3 mb-6 px-1">
-              <Star className="text-amber-500 fill-amber-500/30" size={18} />
-              <h2 className="text-sm font-black text-white uppercase italic tracking-[0.4em] opacity-80">Atalhos Fixados</h2>
-              <span className="text-[8px] font-black text-amber-500/60 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                {atalhos.length}
-              </span>
-            </div>
-            <div className={`grid gap-4 ${compact ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"}`}>
-              {atalhos.map(mod => (
-                <ModuloCard
-                  key={mod.id}
-                  mod={mod}
-                  isAdmin={isAdminOrCeo}
-                  userPermissions={userPermissions}
-                  style={style}
-                  compact={compact}
-                  pinned
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* ── CATEGORIAS ── */}
-        {CATEGORIAS.filter(cat => {
-          if (cat.adminOnly && !isAdminOrCeo) return false;
-          return !!byCategory[cat.id]?.length;
-        }).map(cat => (
+        {CATEGORIAS.filter(cat => !!byCategory[cat.id]?.length).map(cat => (
           <section key={cat.id}>
             <div className="flex items-center gap-3 mb-6 px-1">
               <span className={`w-2 h-2 rounded-full ${CAT_DOT[cat.id]}`} />
@@ -243,6 +211,7 @@ export default function PainelAlphaClient({ session, chamadosIniciais, configBan
                   mod={mod}
                   isAdmin={isAdminOrCeo}
                   userPermissions={userPermissions}
+                  userRole={userRole}
                   style={style}
                   compact={compact}
                 />
@@ -277,16 +246,18 @@ const CAT_LABEL: Record<string, string> = {
 
 // ── ModuloCard ────────────────────────────────────────────
 function ModuloCard({
-  mod, isAdmin, userPermissions, style, compact, pinned,
+  mod, isAdmin, userPermissions, userRole, style, compact,
 }: {
   mod: ModuloRegistryItem;
   isAdmin: boolean;
   userPermissions: string[];
+  userRole: string;
   style: TemaAlpha;
   compact: boolean;
-  pinned?: boolean;
 }) {
-  const temAcesso = isAdmin || userPermissions.some(p => p.toLowerCase() === mod.permission?.toLowerCase());
+  const temAcesso = isAdmin ||
+    mod.allowedRoles?.includes(userRole) ||
+    userPermissions.some(p => p.toLowerCase() === mod.permission?.toLowerCase());
 
   if (compact) {
     return (
@@ -314,14 +285,6 @@ function ModuloCard({
   return (
     <AbaDeAcesso permissaoRequerida={mod.id} userRole={isAdmin ? "Admin" : "User"} userPermissions={userPermissions}>
       <div className={`group relative h-auto sm:h-[360px] lg:h-[420px] rounded-2xl sm:rounded-[3rem] border border-white/5 bg-slate-950/40 p-6 sm:p-10 flex flex-col justify-between transition-all duration-700 hover:-translate-y-1 sm:hover:-translate-y-3 ${temAcesso ? `hover:${style.border.replace("20", "50")} hover:shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]` : "opacity-60 grayscale"} shadow-2xl overflow-hidden backdrop-blur-xl`}>
-
-        {pinned && (
-          <div className="absolute top-5 right-5 z-20">
-            <div className="p-1.5 bg-amber-500/20 rounded-lg border border-amber-500/30">
-              <Star size={10} className="text-amber-500 fill-amber-500/50" />
-            </div>
-          </div>
-        )}
 
         <div className={`absolute -top-24 -right-24 w-80 h-80 bg-gradient-to-br ${style.bg} blur-[100px] opacity-0 group-hover:opacity-20 transition-opacity duration-700 rounded-full`} />
 

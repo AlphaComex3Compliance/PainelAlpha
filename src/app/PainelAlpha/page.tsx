@@ -2,6 +2,7 @@ import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import PainelAlphaClient from "@/components/PainelAlphaClient";
 import db from "@/lib/prisma";
+import { getPermissoesEfetivas } from "@/actions/PermissoesSetor";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,13 +19,13 @@ export default async function PainelAlpha() {
 
   const userDb = await db.usuarios.findUnique({
     where: { id: Number(session?.user?.id) },
-    select: { 
-      tema_interface: true, 
+    select: {
+      tema_interface: true,
       densidade_painel: true,
-      atalhos: true,
-      esconderBloqueados: true
     }
   });
+
+  const permissoesEfetivas = userId > 0 ? await getPermissoesEfetivas(userId) : [];
 
   const chamados = await db.chamados.findMany({
     where: { 
@@ -48,16 +49,14 @@ export default async function PainelAlpha() {
   });
 
   return (
-    
-    <PainelAlphaClient 
-      session={session} 
+    <PainelAlphaClient
+      session={session}
       chamadosIniciais={chamados}
+      permissoesEfetivas={permissoesEfetivas}
       configBanco={{
         tema: userDb?.tema_interface || "blue",
         densidade: userDb?.densidade_painel || "default",
-        atalhos: userDb?.atalhos || "",
-        esconderBloqueados: !!userDb?.esconderBloqueados
-      }} 
+      }}
     />
   );
 }

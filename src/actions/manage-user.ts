@@ -19,12 +19,12 @@ export async function updateUser(idDoUsuario: string, formData: FormData) {
       return { success: false, error: "O campo usuário é obrigatório." };
     }
 
-    const dataUpdate: any = {
+    const dataUpdate: Record<string, unknown> = {
       nome,
       usuario: usuarioLogon,
       email,
       role,
-      permissoes: permissoesString 
+      permissoes: permissoesString,
     };
 
     if (senhaNova && senhaNova.trim() !== "") {
@@ -41,9 +41,9 @@ export async function updateUser(idDoUsuario: string, formData: FormData) {
     revalidatePath("/PainelAlpha/cadastro"); 
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("ERRO AO ATUALIZAR:", error);
-    return { success: false, error: error.message || "Falha ao atualizar usuário" };
+    return { success: false, error: "Falha ao atualizar usuário" };
   }
 }
 

@@ -10,7 +10,7 @@ export interface Socio {
     obs: string;
 }
 
-const VINCULOS = ["Sócio", "Administrador", "Sócio-Administrador", "Procurador", "Representante Legal"];
+const VINCULOS = ["Sócio Proprietário", "Sócio Oculto", "Funcionário/Colaborador", "Contador Interno", "Contador Externo", "Despachante Aduaneiro", "Outro"];
 
 interface Props {
     socios: Socio[];

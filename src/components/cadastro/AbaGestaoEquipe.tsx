@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Search, Pencil, Trash2, Building2, UserCog, Activity } from 'lucide-react';
+import { Search, Pencil, Trash2, Building2, UserCog, Activity, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUsers } from '@/actions/get-user';
-import { deleteUser, updateUser } from '@/actions/manage-user';
-import EditionUser from '@/components/EditionUser';
+import { deleteUser } from '@/actions/manage-user';
 import DeleteUserDialog from '@/components/DeleteUserDialog';
 import ModalGerenciarSetor from './ModalGerenciarSetor';
 import ModalOverrideUser from './ModalOverrideUser';
+import ModalPerfilColaborador from '@/components/Colaboradores/ModalPerfilColaborador';
+import { getContratosVencendo } from '@/actions/ColaboradorRH';
 
 interface UserItem {
   id: number;
@@ -22,20 +23,30 @@ interface UserItem {
   status?: string;
 }
 
-export default function AbaGestaoEquipe() {
+interface AbaGestaoEquipeProps {
+  currentUserRole?: string;
+}
+
+export default function AbaGestaoEquipe({ currentUserRole = 'User' }: AbaGestaoEquipeProps) {
+  const isAdmin = currentUserRole === 'Admin' || currentUserRole === 'CEO';
+
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [setorFiltro, setSetorFiltro] = useState('');
 
-  const [editUser, setEditUser] = useState<UserItem | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
+  const [perfilUserId, setPerfilUserId] = useState<number | null>(null);
+  const [perfilOpen, setPerfilOpen] = useState(false);
+
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [setorModalOpen, setSetorModalOpen] = useState(false);
   const [overrideUser, setOverrideUser] = useState<UserItem | null>(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
+
+  // Alertas contratos vencendo
+  const [contratosVencendo, setContratosVencendo] = useState<{ id: string; dataFim: Date | null; usuario: { nome: string } }[]>([]);
 
   async function load() {
     setLoading(true);
@@ -44,22 +55,20 @@ export default function AbaGestaoEquipe() {
     setLoading(false);
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, []);
-
-  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!editUser) return;
-    const fd = new FormData(e.currentTarget);
-    const r = await updateUser(String(editUser.id), fd);
-    if (r.success) { toast.success('Dados atualizados'); setEditOpen(false); load(); }
-    else toast.error('Erro ao atualizar');
+  async function loadAlertas() {
+    const res = await getContratosVencendo();
+    if (res.success) setContratosVencendo(res.contratos as typeof contratosVencendo);
   }
+
+  useEffect(() => {
+    void load();
+    void loadAlertas();
+  }, []);
 
   async function handleDelete() {
     if (!deleteId) return;
     const r = await deleteUser(deleteId);
-    if (r.success) { toast.success('Usuário removido'); load(); }
+    if (r.success) { toast.success('Usuário removido'); void load(); }
     setDeleteOpen(false);
     setDeleteId(null);
   }
@@ -76,12 +85,35 @@ export default function AbaGestaoEquipe() {
 
   const initials = (nome: string) => nome?.substring(0, 2).toUpperCase() || 'U';
 
+  const diasAte = (date: Date | null) => {
+    if (!date) return null;
+    return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
+  };
+
   return (
     <div className="space-y-6">
+
+      {/* Alertas contratos vencendo */}
+      {contratosVencendo.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {contratosVencendo.map(c => {
+            const dias = diasAte(c.dataFim);
+            return (
+              <div key={c.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/25">
+                <AlertTriangle size={14} className="text-amber-400 shrink-0" />
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wide">
+                  Contrato de <span className="text-white">{c.usuario.nome}</span> vence em{' '}
+                  <span className="text-amber-300">{dias !== null ? `${dias} dias` : '—'}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-3 flex-1 flex-wrap">
-          {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
             <input
@@ -91,29 +123,29 @@ export default function AbaGestaoEquipe() {
               className="w-full h-10 pl-9 pr-4 rounded-xl bg-black/40 border border-white/10 text-[11px] font-bold text-white placeholder:text-slate-700 focus:border-indigo-500/40 outline-none"
             />
           </div>
-
-          {/* Setor filter */}
           <select
             value={setorFiltro}
             onChange={e => setSetorFiltro(e.target.value)}
             className="h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-[11px] font-bold text-white focus:border-indigo-500/40 outline-none"
+            style={{ backgroundColor: '#0f172a', color: 'white' }}
           >
-            <option value="">Todos os setores</option>
-            {setores.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="" style={{ backgroundColor: '#0f172a', color: '#94a3b8' }}>Todos os setores</option>
+            {setores.map(s => <option key={s} value={s} style={{ backgroundColor: '#0f172a', color: 'white' }}>{s}</option>)}
           </select>
         </div>
 
-        {/* Gerenciar setor */}
-        <button
-          onClick={() => setSetorModalOpen(true)}
-          className="flex items-center gap-2 h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shrink-0"
-        >
-          <Building2 size={14} />
-          Gerenciar Setores
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setSetorModalOpen(true)}
+            className="flex items-center gap-2 h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shrink-0"
+          >
+            <Building2 size={14} />
+            Gerenciar Setores
+          </button>
+        )}
       </div>
 
-      {/* Stats bar */}
+      {/* Stats */}
       <div className="flex items-center gap-4 text-[9px] font-black text-slate-600 uppercase tracking-widest">
         <span>{users.length} colaboradores</span>
         <span>·</span>
@@ -132,74 +164,105 @@ export default function AbaGestaoEquipe() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((user, i) => (
-            <motion.div
-              key={user.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04, duration: 0.25 }}
-              className="group relative flex flex-col gap-4 p-5 rounded-2xl border border-white/5 bg-black/40 hover:bg-slate-900/60 hover:border-indigo-500/20 transition-all duration-300 overflow-hidden"
-            >
-              <div className="flex items-center gap-3">
-                <div className="shrink-0 h-11 w-11 rounded-2xl bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden">
-                  {user.imagemUrl ? (
-                    <Image src={user.imagemUrl} alt={user.nome} width={44} height={44} unoptimized className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-indigo-400 font-black text-xs">{initials(user.nome)}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-black text-white uppercase truncate italic">{user.nome || user.usuario}</h4>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase border bg-indigo-500/10 border-indigo-500/20 text-indigo-400">
-                      {user.role}
-                    </span>
-                    {user.status && user.status !== 'ATIVO' && (
-                      <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase border bg-red-500/10 border-red-500/20 text-red-400">
-                        {user.status}
-                      </span>
+          {filtered.map((user, i) => {
+            const vencendo = contratosVencendo.some(c => c.usuario.nome === user.nome);
+            return (
+              <motion.div
+                key={user.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.25 }}
+                className="group relative flex flex-col gap-4 p-5 rounded-2xl border border-white/5 bg-black/40 hover:bg-slate-900/60 hover:border-indigo-500/20 transition-all duration-300 overflow-hidden"
+              >
+                {vencendo && (
+                  <div className="absolute top-3 right-3">
+                    <AlertTriangle size={12} className="text-amber-400" />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 h-11 w-11 rounded-2xl bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                    {user.imagemUrl ? (
+                      <Image src={user.imagemUrl} alt={user.nome} width={44} height={44} unoptimized className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-indigo-400 font-black text-xs">{initials(user.nome)}</span>
                     )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-black text-white uppercase truncate italic">{user.nome || user.usuario}</h4>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase border bg-indigo-500/10 border-indigo-500/20 text-indigo-400">
+                        {user.role}
+                      </span>
+                      {user.status && user.status !== 'ATIVO' && (
+                        <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase border bg-red-500/10 border-red-500/20 text-red-400">
+                          {user.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <p className="text-[9px] text-slate-600 truncate lowercase">{user.email}</p>
+                <p className="text-[9px] text-slate-600 truncate lowercase">{user.email}</p>
 
-              <div className="flex gap-2 pt-2 border-t border-white/5">
-                <button
-                  onClick={() => { setOverrideUser(user); setOverrideOpen(true); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl bg-white/5 border border-white/5 text-[8px] font-black uppercase text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all cursor-pointer"
-                >
-                  <UserCog size={11} />
-                  Permissões
-                </button>
-                <button
-                  onClick={() => { setEditUser(user); setEditOpen(true); }}
-                  className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-500 hover:text-blue-400 hover:border-blue-500/30 transition-all cursor-pointer"
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  onClick={() => { setDeleteId(String(user.id)); setDeleteOpen(true); }}
-                  className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-500 hover:text-red-400 hover:border-red-500/30 transition-all cursor-pointer"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                <div className="flex gap-2 pt-2 border-t border-white/5">
+                  {/* Permissões — Admin only */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setOverrideUser(user); setOverrideOpen(true); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl bg-white/5 border border-white/5 text-[8px] font-black uppercase text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all cursor-pointer"
+                    >
+                      <UserCog size={11} />
+                      Permissões
+                    </button>
+                  )}
+
+                  {/* Editar — todos (Admin, RH, Financeiro) */}
+                  <button
+                    onClick={() => { setPerfilUserId(user.id); setPerfilOpen(true); }}
+                    className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-500 hover:text-blue-400 hover:border-blue-500/30 transition-all cursor-pointer"
+                    title="Editar perfil completo"
+                  >
+                    <Pencil size={13} />
+                  </button>
+
+                  {/* Excluir — Admin only */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setDeleteId(String(user.id)); setDeleteOpen(true); }}
+                      className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-500 hover:text-red-400 hover:border-red-500/30 transition-all cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
       {/* Modals */}
-      <ModalGerenciarSetor open={setorModalOpen} onClose={() => setSetorModalOpen(false)} totalUsers={totalUsers} />
-      <ModalOverrideUser
-        user={overrideUser ? { id: overrideUser.id, nome: overrideUser.nome, role: overrideUser.role } : null}
-        open={overrideOpen}
-        onClose={() => setOverrideOpen(false)}
+      <ModalPerfilColaborador
+        usuarioId={perfilUserId}
+        currentUserRole={currentUserRole}
+        open={perfilOpen}
+        onClose={() => setPerfilOpen(false)}
+        onAtualizado={() => void load()}
       />
-      <EditionUser open={editOpen} onOpenChange={setEditOpen} user={editUser} onSubmit={handleEditSubmit} />
-      <DeleteUserDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} />
+
+      {isAdmin && (
+        <>
+          <ModalGerenciarSetor open={setorModalOpen} onClose={() => setSetorModalOpen(false)} totalUsers={totalUsers} />
+          <ModalOverrideUser
+            user={overrideUser ? { id: overrideUser.id, nome: overrideUser.nome, role: overrideUser.role } : null}
+            open={overrideOpen}
+            onClose={() => setOverrideOpen(false)}
+          />
+        </>
+      )}
+
+      <DeleteUserDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={() => void handleDelete()} />
     </div>
   );
 }

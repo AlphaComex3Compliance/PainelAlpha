@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     X, ChevronLeft, ChevronRight, Plus, Search, Loader2,
-    Eye, Check, BarChart3, Users, FileText, Minus, Trash2,
+    Eye, Check, BarChart3, Users, FileText, Minus, Trash2, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
     getServicosComerciais,
     criarServicoComercial,
     excluirContrato,
+    atualizarContratoUrl,
 } from "@/actions/ContratoComercial";
 import QuadroSocios, { type Socio } from "./QuadroSocios";
 import ModalConfirmacaoFechamento from "./ModalConfirmacaoFechamento";
@@ -61,9 +62,12 @@ const MESES = [
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-const FORMAS_PAGAMENTO = ["PIX", "BOLETO", "CARTAO", "TRANSFERENCIA", "OUTRO"] as const;
+const FORMAS_PAGAMENTO = ["ENTRADA_EXITO", "PARCELADO_CC", "INTEGRAL_PIX"] as const;
 const FORMAS_LABEL: Record<string, string> = {
-    PIX: "PIX", BOLETO: "Boleto", CARTAO: "Cartão", TRANSFERENCIA: "Transferência", OUTRO: "Outro",
+    ENTRADA_EXITO: "50% Entrada / 50% Êxito (Pix)",
+    PARCELADO_CC: "Parcelamento Cartão de Crédito - até 12x com juros",
+    INTEGRAL_PIX: "Integral na contratação - 10% OFF (Pix)",
+    OUTRO: "Outra forma",
 };
 
 const CANAIS_AQUISICAO = [
@@ -228,7 +232,7 @@ function FormNovoContrato({
                 razaoSocial: dadosEmpresa.razaoSocial,
                 nomeFantasia: dadosEmpresa.nomeFantasia || undefined,
                 valorContrato,
-                formaPagamento: formaPagamentoFinal as "PIX" | "BOLETO" | "CARTAO" | "TRANSFERENCIA" | "OUTRO",
+                formaPagamento: formaPagamentoFinal as "ENTRADA_EXITO" | "PARCELADO_CC" | "INTEGRAL_PIX" | "OUTRO",
                 servico,
                 canalAquisicao,
                 closerNome: closerFinal,
@@ -667,6 +671,55 @@ function TabelaEnviados({
     );
 }
 
+// ─── Upload Contrato Button ────────────────────────────────────────────────────
+
+function UploadContratoBtn({ contratoId, onRecarregar }: { contratoId: string; onRecarregar: () => void }) {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleUpload = async (file: File) => {
+        if (file.type !== "application/pdf") { toast.error("Apenas PDF"); return; }
+        if (file.size > 10 * 1024 * 1024) { toast.error("Arquivo excede 10MB"); return; }
+        setUploading(true);
+        try {
+            const res = await fetch(`/api/contratos/upload?filename=${encodeURIComponent(file.name)}`, {
+                method: "POST", body: file, headers: { "content-length": String(file.size) },
+            });
+            const data = await res.json() as { url?: string; error?: string };
+            if (!res.ok || !data.url) { toast.error(data.error ?? "Erro ao fazer upload"); return; }
+            const saveRes = await atualizarContratoUrl(contratoId, data.url);
+            if (saveRes.success) { toast.success("Contrato enviado!"); onRecarregar(); }
+            else toast.error(saveRes.error ?? "Erro ao salvar");
+        } catch { toast.error("Erro ao enviar"); }
+        finally { setUploading(false); }
+    };
+
+    return (
+        <>
+            <input ref={fileRef} type="file" accept=".pdf,application/pdf" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) void handleUpload(f); e.target.value = ""; }} />
+            <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                title="Enviar contrato assinado (PDF)"
+                className="relative inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/15 border border-red-500/40 text-red-400 text-[8px] font-black uppercase tracking-wider hover:bg-red-500/25 transition-colors disabled:opacity-50"
+            >
+                {uploading ? (
+                    <Loader2 size={10} className="animate-spin" />
+                ) : (
+                    <>
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+                        <Upload size={10} />
+                        Doc
+                    </>
+                )}
+            </button>
+        </>
+    );
+}
+
 // ─── Tabela de Contratos Fechados ─────────────────────────────────────────────
 
 function TabelaFechados({
@@ -674,11 +727,13 @@ function TabelaFechados({
     showCloser,
     canDelete,
     onExcluir,
+    onRecarregar,
 }: {
     contratos: Contrato[];
     showCloser: boolean;
     canDelete: boolean;
     onExcluir: (c: Contrato) => void;
+    onRecarregar: () => void;
 }) {
     return (
         <div className="space-y-3">
@@ -701,7 +756,7 @@ function TabelaFechados({
                             <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600 whitespace-nowrap">Nome Fantasia</th>
                             <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600 whitespace-nowrap">Valor</th>
                             <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600 whitespace-nowrap">Serviço</th>
-                            <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600 text-right whitespace-nowrap">Doc</th>
+                            <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600 text-right whitespace-nowrap">Contrato</th>
                             {canDelete && <th className="px-3 py-3 text-[8px] font-black uppercase tracking-widest text-slate-600" />}
                         </tr>
                     </thead>
@@ -757,7 +812,7 @@ function TabelaFechados({
                                                 <Eye size={14} />
                                             </a>
                                         ) : (
-                                            <span className="text-slate-700 text-[9px]">—</span>
+                                            <UploadContratoBtn contratoId={c.id} onRecarregar={onRecarregar} />
                                         )}
                                     </td>
                                     {canDelete && (
@@ -1041,6 +1096,7 @@ export default function ModalGerenciamentoLeads({ role, nomeUsuario, onFechar, o
                                             showCloser={isAdmin && painelGlobal}
                                             canDelete={isAdmin}
                                             onExcluir={setContratoParaExcluir}
+                                            onRecarregar={carregarContratos}
                                         />
                                     </>
                                 )}

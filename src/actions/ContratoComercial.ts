@@ -30,7 +30,7 @@ const CriarContratoSchema = z.object({
     razaoSocial: z.string().min(1),
     nomeFantasia: z.string().optional(),
     valorContrato: z.number().positive(),
-    formaPagamento: z.enum(["PIX", "BOLETO", "CARTAO", "TRANSFERENCIA", "OUTRO"]),
+    formaPagamento: z.enum(["ENTRADA_EXITO", "PARCELADO_CC", "INTEGRAL_PIX", "OUTRO"]),
     servico: z.string().min(1),
     canalAquisicao: z.string().min(1),
     closerNome: z.string().min(1),
@@ -344,6 +344,45 @@ export async function seedServicosIniciais() {
             update: {},
             create: { nome },
         });
+    }
+}
+
+export async function atualizarContratoUrl(id: string, contratoUrl: string) {
+    const session = await auth();
+    if (!session?.user) return { success: false as const, error: "Não autorizado" };
+
+    const userId = Number((session.user as { id?: string }).id);
+    const dbUser = await db.usuarios.findUnique({ where: { id: userId }, select: { role: true } });
+    const role = dbUser?.role ?? "";
+
+    if (!isComercialOrAdmin(role)) {
+        return { success: false as const, error: "Sem permissão" };
+    }
+
+    const idParsed = z.string().cuid().safeParse(id);
+    if (!idParsed.success) return { success: false as const, error: "ID inválido" };
+
+    const urlParsed = z.string().url().safeParse(contratoUrl);
+    if (!urlParsed.success) return { success: false as const, error: "URL inválida" };
+
+    const contrato = await db.contratoComercial.findUnique({
+        where: { id: idParsed.data },
+        select: { usuarioId: true },
+    });
+    if (!contrato) return { success: false as const, error: "Contrato não encontrado" };
+    if (!isAdminOrCeo(role) && contrato.usuarioId !== userId) {
+        return { success: false as const, error: "Sem permissão" };
+    }
+
+    try {
+        await db.contratoComercial.update({
+            where: { id: idParsed.data },
+            data: { contratoUrl: urlParsed.data, contratoAssinado: true },
+        });
+        return { success: true as const };
+    } catch (err) {
+        console.error("atualizarContratoUrl:", err);
+        return { success: false as const, error: "Erro ao salvar" };
     }
 }
 

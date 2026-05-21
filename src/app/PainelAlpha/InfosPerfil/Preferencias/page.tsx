@@ -26,19 +26,15 @@ const TEMAS = [
 export default function PreferenciasPage() {
   const { data: session, update } = useSession();
   
-  const [tema, setTema] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("alpha-theme-temp") || "blue";
-    }
-    return "blue";
-  });
+  const [tema, setTema] = useState("blue");
+  const [densidade, setDensidade] = useState("default");
 
-  const [densidade, setDensidade] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("alpha-density-temp") || "default";
-    }
-    return "default";
-  });
+  useEffect(() => {
+    const cachedTema = localStorage.getItem("alpha-theme-temp");
+    const cachedDensidade = localStorage.getItem("alpha-density-temp");
+    if (cachedTema) setTema(cachedTema);
+    if (cachedDensidade) setDensidade(cachedDensidade);
+  }, []);
   
   const [loading, setLoading] = useState(false);
   const [bibbleAtivo, setBibbleAtivo] = useState(true);

@@ -31,10 +31,11 @@ const SETORES_LISTA = [
   { value: "Serviços Gerais",   label: "SERVIÇOS GERAIS" },
 ];
 
-export default function CadastroUsuarios() {
+export default function CadastroUsuarios({ currentUserRole = 'Admin' }: { currentUserRole?: string }) {
+  const isAdmin = currentUserRole === 'Admin' || currentUserRole === 'CEO';
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(registerAction, null);
-  const [aba, setAba] = useState<AbaAtiva>("cadastro");
+  const [aba, setAba] = useState<AbaAtiva>(isAdmin ? "cadastro" : "equipe");
   const [setorSelecionado, setSetorSelecionado] = useState("");
 
   useEffect(() => {
@@ -74,7 +75,7 @@ export default function CadastroUsuarios() {
           </div>
         </div>
 
-        <TogglePillCadastro value={aba} onChange={setAba} />
+        {isAdmin && <TogglePillCadastro value={aba} onChange={setAba} />}
       </nav>
 
       {/* Content */}
@@ -82,7 +83,7 @@ export default function CadastroUsuarios() {
         <AnimatePresence mode="wait">
 
           {/* ─── ABA CADASTRAR NOVO ─────────────────────────────────────── */}
-          {aba === "cadastro" && (
+          {aba === "cadastro" && isAdmin && (
             <motion.div
               key="cadastro"
               initial={{ opacity: 0, x: -16 }}
@@ -205,7 +206,7 @@ export default function CadastroUsuarios() {
               exit={{ opacity: 0, x: -16 }}
               transition={{ duration: 0.2 }}
             >
-              <AbaGestaoEquipe />
+              <AbaGestaoEquipe currentUserRole={currentUserRole} />
             </motion.div>
           )}
 
